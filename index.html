@@ -4,65 +4,69 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inventario con Código de Barra</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      margin: 0;
-      padding: 20px;
-    }
-    header {
-      text-align: center;
-      padding: 10px;
-      background-color: #007bff;
-      color: white;
-    }
-    .scanner {
-      margin: 20px auto;
-      max-width: 600px;
-      text-align: center;
-    }
-    video {
-      width: 100%;
-      border: 2px solid #007bff;
-    }
-    .form {
-      margin-top: 20px;
-    }
-    input, button {
-      padding: 10px;
-      margin: 5px;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .inventory-list {
-      margin-top: 30px;
-    }
-  </style>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
-  <header>
-    <h1>Inventario con Código de Barra</h1>
+<body class="bg-light">
+
+  <!-- Encabezado -->
+  <header class="bg-primary text-white text-center py-4 mb-4 shadow">
+    <h1 class="fw-bold">Inventario con Código de Barra</h1>
   </header>
 
-  <div class="scanner">
-    <h2>Escáner</h2>
-    <video id="preview"></video>
-    <button onclick="startScanner()">Iniciar escaneo</button>
+  <div class="container">
+    <!-- Escáner -->
+    <div class="card mb-4 shadow-sm">
+      <div class="card-header bg-primary text-white">
+        <h2 class="h5 mb-0">📷 Escáner</h2>
+      </div>
+      <div class="card-body text-center">
+        <video id="preview" class="w-100 border rounded"></video>
+        <button class="btn btn-success mt-3" onclick="startScanner()">Iniciar escaneo</button>
+      </div>
+    </div>
+
+    <!-- Formulario -->
+    <div class="card mb-4 shadow-sm">
+      <div class="card-header bg-success text-white">
+        <h2 class="h5 mb-0">➕ Registrar producto</h2>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <input type="text" id="barcode" class="form-control" placeholder="Código de barra escaneado">
+        </div>
+        <div class="mb-3">
+          <input type="text" id="productName" class="form-control" placeholder="Nombre del producto">
+        </div>
+        <div class="mb-3">
+          <input type="number" id="quantity" class="form-control" placeholder="Cantidad">
+        </div>
+        <button class="btn btn-success w-100" onclick="addToInventory()">Agregar al inventario</button>
+      </div>
+    </div>
+
+    <!-- Inventario -->
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white">
+        <h2 class="h5 mb-0">📦 Inventario</h2>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-striped table-hover mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th>Código</th>
+              <th>Producto</th>
+              <th>Cantidad</th>
+            </tr>
+          </thead>
+          <tbody id="inventory"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
-  <div class="form">
-    <h2>Registrar producto</h2>
-    <input type="text" id="barcode" placeholder="Código de barra escaneado">
-    <input type="text" id="productName" placeholder="Nombre del producto">
-    <input type="number" id="quantity" placeholder="Cantidad">
-    <button onclick="addToInventory()">Agregar al inventario</button>
-  </div>
-
-  <div class="inventory-list">
-    <h2>Inventario</h2>
-    <ul id="inventory"></ul>
-  </div>
+  <!-- Bootstrap JS (opcional para interactividad extra) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
     let inventory = [];
@@ -85,9 +89,13 @@
       const list = document.getElementById('inventory');
       list.innerHTML = '';
       inventory.forEach(item => {
-        const li = document.createElement('li');
-        li.textContent = `${item.name} - Código: ${item.barcode} - Cantidad: ${item.quantity}`;
-        list.appendChild(li);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${item.barcode}</td>
+          <td>${item.name}</td>
+          <td>${item.quantity}</td>
+        `;
+        list.appendChild(row);
       });
     }
 
@@ -97,4 +105,3 @@
   </script>
 </body>
 </html>
-
