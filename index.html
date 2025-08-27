@@ -1,186 +1,342 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inventario de Muebles</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f6f9;
-      margin: 0;
-      padding: 0;
-    }
-    header {
-      background: #007bff;
-      color: white;
-      padding: 15px;
-      text-align: center;
-    }
-    main {
-      padding: 20px;
-      max-width: 900px;
-      margin: auto;
-    }
-    section {
-      background: white;
-      padding: 20px;
-      margin-bottom: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    h2 {
-      margin-top: 0;
-      color: #007bff;
-    }
-    input, button {
-      padding: 10px;
-      margin: 5px 0;
-      width: 100%;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    button {
-      background: #007bff;
-      color: white;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-    ul {
-      list-style: none;
-      padding: 0;
-    }
-    li {
-      background: #f9f9f9;
-      padding: 10px;
-      margin-bottom: 5px;
-      border-radius: 4px;
-      border: 1px solid #ddd;
-    }
-    .search-box {
-      margin-bottom: 15px;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventario de Muebles — KLL</title>
+
+<!-- Librerías -->
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+
+<style>
+  :root{--primary:#2563eb;--primary-600:#1d4ed8;--bg:#f3f4f6;--card:#fff;--text:#111827;--muted:#6b7280;--ring:rgba(37,99,235,.12)}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+  header{background:var(--primary);color:#fff;text-align:center;padding:16px 12px;font-weight:700}
+  .container{max-width:1100px;margin:18px auto;padding:0 12px}
+  /* Tabs */
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .tab-btn{flex:1;min-width:150px;border:1px solid #e5e7eb;background:#fff;padding:12px;border-radius:10px;cursor:pointer;font-weight:700}
+  .tab-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .card{background:var(--card);border-radius:14px;padding:18px;box-shadow:0 8px 24px rgba(0,0,0,.05)}
+  .hidden{display:none}
+  h2{margin:0 0 12px 0;font-size:1.15rem}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  input,button,select{width:100%;padding:12px;border-radius:10px;border:1px solid #e5e7eb;background:#fff;outline:none}
+  input:focus,select:focus{box-shadow:0 0 0 4px var(--ring);border-color:var(--primary)}
+  button{background:var(--primary);color:#fff;border:none;font-weight:700;cursor:pointer}
+  button:hover{background:var(--primary-600)}
+  .muted{color:var(--muted);font-size:.9rem}
+  /* Inventario */
+  .inventory-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .item{border:1px solid #e5e7eb;border-radius:12px;padding:12px}
+  .top{display:flex;justify-content:space-between;gap:8px}
+  .name{font-weight:700}
+  /* Etiqueta (preview dentro de la página, simple) */
+  .label-preview{border:1px solid #000;border-radius:8px;padding:12px;width:320px;max-width:100%;background:#fff}
+  .label-preview .model{font-size:20px;font-weight:700}
+  .label-preview .fabric{font-size:16px;margin-top:4px}
+  .label-preview .date{font-size:14px;margin-top:4px}
+  .label-preview svg{margin-top:10px}
+</style>
 </head>
 <body>
-  <header>
-    <h1>Inventario de Muebles</h1>
-  </header>
-  <main>
-    <!-- Registro manual de productos -->
-    <section>
-      <h2>Registrar Producto</h2>
-      <input type="text" id="productName" placeholder="Nombre del producto (ej: Sillón Roma)">
-      <input type="text" id="productFabric" placeholder="Tela (ej: Lino Beige)">
-      <button onclick="registerProduct()">Registrar y generar código</button>
-    </section>
+<header>Inventario de Muebles — KLL</header>
+<div class="container">
 
-    <!-- Inventario -->
-    <section>
-      <h2>Inventario</h2>
-      <input type="text" id="search" class="search-box" placeholder="Buscar producto..." onkeyup="searchInventory()">
-      <ul id="inventory"></ul>
-    </section>
-  </main>
+  <!-- Pestañas -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="tab-registrar">Registrar</button>
+    <button class="tab-btn" data-tab="tab-escanear">Escanear</button>
+    <button class="tab-btn" data-tab="tab-inventario">Inventario</button>
+    <button class="tab-btn" data-tab="tab-etiquetas">Etiquetas</button>
+  </div>
 
-  <!-- Librería para códigos de barras -->
-  <script src="https://cdn.jsdelivr.net/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+  <!-- Registrar -->
+  <section id="tab-registrar" class="card">
+    <h2>Registrar producto</h2>
+    <div class="row">
+      <input id="newName" placeholder="Modelo (ej. Sillón Roma)">
+      <input id="newFabric" placeholder="Tela (ej. Lino Beige)">
+    </div>
+    <div class="row">
+      <button onclick="generateProduct()">Generar código KLL y guardar</button>
+    </div>
+    <div class="muted">Al guardar se crea el producto (cantidad=1), se añade al inventario y podrás imprimir su etiqueta.</div>
+  </section>
 
-  <script>
-    let inventory = [];
-    let productCounter = 1;
+  <!-- Escanear -->
+  <section id="tab-escanear" class="card hidden">
+    <h2>Escanear código (Code128 / QR)</h2>
+    <div class="row">
+      <div id="reader" style="width:100%;max-width:420px;margin:auto"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <input id="scanCode" placeholder="Código leído" readonly>
+      <input id="scanName" placeholder="Modelo" readonly>
+      <input id="scanFabric" placeholder="Tela" readonly>
+      <input id="scanQty" placeholder="Cantidad total" readonly>
+    </div>
+    <div class="muted">Si el código existe en tu catálogo, el sistema sumará la cantidad automáticamente.</div>
+  </section>
 
-    // Registrar producto y generar código
-    function registerProduct() {
-      const name = document.getElementById("productName").value;
-      const fabric = document.getElementById("productFabric").value;
-      const date = new Date().toLocaleDateString("es-MX");
+  <!-- Inventario -->
+  <section id="tab-inventario" class="card hidden">
+    <h2>Inventario</h2>
+    <div class="row" style="margin-bottom:10px">
+      <input id="searchInput" placeholder="Buscar por modelo, tela o código" oninput="renderInventory()">
+      <input type="month" id="filterMonth" onchange="renderInventory()">
+      <button onclick="exportCSV()">Exportar CSV</button>
+    </div>
+    <div id="inventory" class="inventory-grid"></div>
+  </section>
 
-      if (!name || !fabric) {
-        alert("Por favor completa todos los campos.");
-        return;
+  <!-- Etiquetas -->
+  <section id="tab-etiquetas" class="card hidden">
+    <h2>Etiquetas</h2>
+    <div class="row">
+      <select id="labelSelect"></select>
+      <button onclick="printSelectedLabel()">Imprimir etiqueta seleccionada</button>
+    </div>
+    <div id="labelPreviewWrap" style="margin-top:12px">
+      <div id="labelPreview" class="label-preview" style="display:none">
+        <div class="model" id="pModel"></div>
+        <div class="fabric" id="pFabric"></div>
+        <div class="date" id="pDate"></div>
+        <svg id="pBarcode"></svg>
+      </div>
+      <div class="muted" id="noLabelMsg">Selecciona un producto para ver la vista previa.</div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  /*================= Estado & Persistencia =================*/
+  let productos = {}; // codigo -> {nombre, tela}
+  let inventory = []; // [{barcode, nombre, tela, cantidad, dateISO}]
+  let kllCounter = 1; // contador incremental para KLL-####
+
+  (function initLoad(){
+    try{
+      const p = localStorage.getItem('productos');
+      const inv = localStorage.getItem('inventory');
+      const c  = localStorage.getItem('kllCounter');
+      productos = p ? JSON.parse(p) : {};
+      inventory = inv ? JSON.parse(inv) : [];
+      kllCounter = c ? parseInt(c) : 1;
+    }catch(e){ productos={}; inventory=[]; kllCounter=1; }
+    renderInventory();
+    refreshLabelSelect();
+  })();
+
+  function saveAll(){
+    localStorage.setItem('productos', JSON.stringify(productos));
+    localStorage.setItem('inventory', JSON.stringify(inventory));
+    localStorage.setItem('kllCounter', String(kllCounter));
+  }
+
+  /*================= Tabs =================*/
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  tabButtons.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      tabButtons.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('section.card').forEach(s=>s.classList.add('hidden'));
+      document.getElementById(btn.dataset.tab).classList.remove('hidden');
+    });
+  });
+
+  /*================= Generar / Registrar =================*/
+  function nextKLL(){
+    const code = "KLL-" + String(kllCounter).padStart(4,'0');
+    kllCounter += 1;
+    return code;
+  }
+
+  function generateProduct(){
+    const nombre = document.getElementById('newName').value.trim();
+    const tela   = document.getElementById('newFabric').value.trim();
+    if(!nombre || !tela){ alert("Ingresa modelo y tela"); return; }
+
+    const code = nextKLL();
+    productos[code] = { nombre, tela };
+
+    // Agregar al inventario con cantidad 1
+    const nowISO = new Date().toISOString();
+    inventory.push({ barcode:code, nombre, tela, cantidad:1, dateISO:nowISO });
+
+    // limpiar
+    document.getElementById('newName').value = "";
+    document.getElementById('newFabric').value = "";
+
+    saveAll();
+    renderInventory();
+    refreshLabelSelect();
+    // Cambiar a pestaña Etiquetas para imprimir rápido (opcional):
+    // document.querySelector('[data-tab="tab-etiquetas"]').click();
+  }
+
+  /*================= Escáner =================*/
+  const scanner = new Html5QrcodeScanner("reader", { fps:10, qrbox:250 });
+  scanner.render(onScanSuccess);
+
+  function onScanSuccess(decodedText){
+    // Mostrar el código leído
+    document.getElementById('scanCode').value = decodedText;
+
+    // Si existe en catálogo, sumar cantidad o crearlo con 1
+    if(productos[decodedText]){
+      const prod = productos[decodedText];
+      let item = inventory.find(i=>i.barcode===decodedText);
+      if(item){
+        item.cantidad += 1;
+      }else{
+        item = { barcode:decodedText, nombre:prod.nombre, tela:prod.tela, cantidad:1, dateISO:new Date().toISOString() };
+        inventory.push(item);
       }
+      // Rellenar UI
+      document.getElementById('scanName').value = prod.nombre;
+      document.getElementById('scanFabric').value = prod.tela;
+      document.getElementById('scanQty').value = item.cantidad;
 
-      const code = "KLL-" + String(productCounter).padStart(4, "0");
-      productCounter++;
-
-      // Guardar en inventario
-      let existing = inventory.find(item => item.code === code);
-      if (existing) {
-        existing.quantity++;
-      } else {
-        inventory.push({ code, name, fabric, date, quantity: 1 });
-      }
-
-      updateInventory();
-      generateLabel(code, name, fabric, date);
-
-      // limpiar campos
-      document.getElementById("productName").value = "";
-      document.getElementById("productFabric").value = "";
+      saveAll();
+      renderInventory();
+    }else{
+      document.getElementById('scanName').value = "No registrado";
+      document.getElementById('scanFabric').value = "";
+      document.getElementById('scanQty').value = "";
     }
+  }
 
-    // Actualizar lista de inventario
-    function updateInventory() {
-      const list = document.getElementById("inventory");
-      list.innerHTML = "";
-      inventory.forEach(item => {
-        const li = document.createElement("li");
-        li.textContent = `${item.name} - Tela: ${item.fabric} - Código: ${item.code} - Cantidad: ${item.quantity} - Fecha: ${item.date}`;
-        list.appendChild(li);
-      });
-    }
+  /*================= Inventario =================*/
+  function renderInventory(){
+    const wrap = document.getElementById('inventory');
+    wrap.innerHTML = "";
+    const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
+    const m = document.getElementById('filterMonth')?.value || ""; // YYYY-MM
 
-    // Buscador en el inventario
-    function searchInventory() {
-      const query = document.getElementById("search").value.toLowerCase();
-      const list = document.getElementById("inventory");
-      list.innerHTML = "";
-      inventory.filter(item =>
-        item.name.toLowerCase().includes(query) ||
-        item.fabric.toLowerCase().includes(query) ||
-        item.code.toLowerCase().includes(query)
-      ).forEach(item => {
-        const li = document.createElement("li");
-        li.textContent = `${item.name} - Tela: ${item.fabric} - Código: ${item.code} - Cantidad: ${item.quantity} - Fecha: ${item.date}`;
-        list.appendChild(li);
-      });
-    }
+    const data = inventory
+      .filter(i=>{
+        const okM = !m || (i.dateISO||"").slice(0,7)===m;
+        const okQ = !q || i.nombre.toLowerCase().includes(q) || i.tela.toLowerCase().includes(q) || i.barcode.toLowerCase().includes(q);
+        return okM && okQ;
+      })
+      .sort((a,b)=>(b.dateISO||"").localeCompare(a.dateISO||""));
 
-    // Generar etiqueta para imprimir
-    function generateLabel(code, name, fabric, date) {
-      const printWindow = window.open("", "_blank", "width=400,height=300");
-      printWindow.document.write(`
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; }
-            .label { border: 1px solid #000; padding: 10px; }
-            .model { font-size: 20px; font-weight: bold; }
-            .fabric { font-size: 16px; margin-top: 5px; }
-            .date { font-size: 14px; margin-top: 5px; }
-            svg { margin-top: 10px; }
-          </style>
-        </head>
-        <body>
-          <div class="label">
-            <div class="model">${name}</div>
-            <div class="fabric">${fabric}</div>
-            <div class="date">${date}</div>
-            <svg id="barcode"></svg>
-          </div>
-          <script src="https://cdn.jsdelivr.net/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
-          <script>
-            JsBarcode("#barcode", "${code}", {format: "CODE128", width: 2, height: 60, displayValue: true});
-            window.print();
-          <\/script>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
-    }
-  </script>
+    data.forEach(i=>{
+      const card = document.createElement('div');
+      card.className = 'item';
+      const dateTxt = i.dateISO ? new Date(i.dateISO).toLocaleDateString() : "-";
+      card.innerHTML = `
+        <div class="top">
+          <div class="name">${i.nombre}</div>
+          <div class="muted">Cant: ${i.cantidad}</div>
+        </div>
+        <div class="muted">Tela: ${i.tela}</div>
+        <div class="muted">Código: ${i.barcode} · Fecha: ${dateTxt}</div>
+        <svg class="bc" jsbarcode-format="CODE128" jsbarcode-value="${i.barcode}" jsbarcode-height="40"></svg>
+      `;
+      wrap.appendChild(card);
+      JsBarcode(card.querySelector('svg')).init();
+    });
+  }
+
+  function exportCSV(){
+    if(inventory.length===0){ alert("No hay datos"); return; }
+    const headers = ["Modelo","Tela","Cantidad","Código","Fecha"];
+    const rows = inventory.map(i=>[
+      i.nombre, i.tela, i.cantidad, i.barcode,
+      i.dateISO ? new Date(i.dateISO).toLocaleDateString() : ""
+    ]);
+    const csv = headers.join(",")+"\n"+rows.map(r=>r.map(s=>`"${String(s).replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = "inventario_kll.csv"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /*================= Etiquetas =================*/
+  function refreshLabelSelect(){
+    const sel = document.getElementById('labelSelect');
+    if(!sel) return;
+    const prevCode = sel.value;
+    sel.innerHTML = "";
+    // opciones
+    inventory.forEach(i=>{
+      const opt = document.createElement('option');
+      opt.value = i.barcode;
+      opt.textContent = `${i.nombre} · ${i.tela} · ${i.barcode}`;
+      sel.appendChild(opt);
+    });
+    // restaurar selección si existe
+    if(prevCode && [...sel.options].some(o=>o.value===prevCode)) sel.value = prevCode;
+    // actualizar preview
+    onLabelSelectChange();
+    sel.onchange = onLabelSelectChange;
+  }
+
+  function onLabelSelectChange(){
+    const sel = document.getElementById('labelSelect');
+    const preview = document.getElementById('labelPreview');
+    const msg = document.getElementById('noLabelMsg');
+    if(!sel.value){ preview.style.display="none"; msg.style.display="block"; return; }
+    const item = inventory.find(i=>i.barcode===sel.value);
+    if(!item){ preview.style.display="none"; msg.style.display="block"; return; }
+
+    msg.style.display="none";
+    preview.style.display="block";
+    document.getElementById('pModel').textContent = item.nombre;
+    document.getElementById('pFabric').textContent = item.tela;
+    document.getElementById('pDate').textContent = item.dateISO ? new Date(item.dateISO).toLocaleDateString() : "";
+    JsBarcode("#pBarcode", item.barcode, {format:"CODE128", width:2, height:60, displayValue:true});
+  }
+
+  function printSelectedLabel(){
+    const sel = document.getElementById('labelSelect');
+    if(!sel.value){ alert("Selecciona un producto"); return; }
+    const item = inventory.find(i=>i.barcode===sel.value);
+    if(!item){ alert("Producto no encontrado"); return; }
+
+    // Ventana exclusiva con SOLO la etiqueta
+    const w = window.open('', '', 'width=420,height=360');
+    const dateTxt = item.dateISO ? new Date(item.dateISO).toLocaleDateString() : "";
+    let html = `
+      <html><head><title>Etiqueta ${item.barcode}</title>
+      <style>
+        body{font-family:Arial, sans-serif; margin:0; padding:16px; text-align:center}
+        .label{border:1px solid #000; padding:10px; width:320px; margin:0 auto}
+        .model{font-size:20px; font-weight:700}
+        .fabric{font-size:16px; margin-top:4px}
+        .date{font-size:14px; margin-top:4px}
+        svg{margin-top:10px}
+      </style>
+      <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+      </head><body>
+        <div class="label">
+          <div class="model">${escapeHtml(item.nombre)}</div>
+          <div class="fabric">${escapeHtml(item.tela)}</div>
+          <div class="date">${escapeHtml(dateTxt)}</div>
+          <svg id="code"></svg>
+        </div>
+        <script>
+          JsBarcode("#code","${item.barcode}",{format:"CODE128",width:2,height:60,displayValue:true});
+          window.onload = function(){ window.print(); }
+        <\/script>
+      </body></html>
+    `;
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+  }
+
+  // util
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+
+  // Actualizar combos/preview al cambiar de pestaña a Etiquetas
+  document.querySelector('[data-tab="tab-etiquetas"]').addEventListener('click', refreshLabelSelect);
+</script>
 </body>
 </html>
