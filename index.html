@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Inventario de Muebles — KLL</title>
 
-<!-- Librerías -->
+<!-- Librerías (HTTPS y válidas) -->
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 
@@ -33,7 +33,7 @@
   .item{border:1px solid #e5e7eb;border-radius:12px;padding:12px}
   .top{display:flex;justify-content:space-between;gap:8px}
   .name{font-weight:700}
-  /* Etiqueta (preview dentro de la página, simple) */
+  /* Etiqueta preview (dentro de la página) */
   .label-preview{border:1px solid #000;border-radius:8px;padding:12px;width:320px;max-width:100%;background:#fff}
   .label-preview .model{font-size:20px;font-weight:700}
   .label-preview .fabric{font-size:16px;margin-top:4px}
@@ -61,9 +61,9 @@
       <input id="newFabric" placeholder="Tela (ej. Lino Beige)">
     </div>
     <div class="row">
-      <button onclick="generateProduct()">Generar código KLL y guardar</button>
+      <button id="btnGenerate">Generar código KLL y guardar</button>
     </div>
-    <div class="muted">Al guardar se crea el producto (cantidad=1), se añade al inventario y podrás imprimir su etiqueta.</div>
+    <div class="muted">Crea el producto (cantidad=1), se añade al inventario y podrás imprimir su etiqueta.</div>
   </section>
 
   <!-- Escanear -->
@@ -85,9 +85,9 @@
   <section id="tab-inventario" class="card hidden">
     <h2>Inventario</h2>
     <div class="row" style="margin-bottom:10px">
-      <input id="searchInput" placeholder="Buscar por modelo, tela o código" oninput="renderInventory()">
-      <input type="month" id="filterMonth" onchange="renderInventory()">
-      <button onclick="exportCSV()">Exportar CSV</button>
+      <input id="searchInput" placeholder="Buscar por modelo, tela o código">
+      <input type="month" id="filterMonth">
+      <button id="btnCSV">Exportar CSV</button>
     </div>
     <div id="inventory" class="inventory-grid"></div>
   </section>
@@ -97,7 +97,7 @@
     <h2>Etiquetas</h2>
     <div class="row">
       <select id="labelSelect"></select>
-      <button onclick="printSelectedLabel()">Imprimir etiqueta seleccionada</button>
+      <button id="btnPrintLabel">Imprimir etiqueta seleccionada</button>
     </div>
     <div id="labelPreviewWrap" style="margin-top:12px">
       <div id="labelPreview" class="label-preview" style="display:none">
@@ -113,23 +113,23 @@
 </div>
 
 <script>
+(function(){
   /*================= Estado & Persistencia =================*/
   let productos = {}; // codigo -> {nombre, tela}
   let inventory = []; // [{barcode, nombre, tela, cantidad, dateISO}]
   let kllCounter = 1; // contador incremental para KLL-####
 
-  (function initLoad(){
-    try{
-      const p = localStorage.getItem('productos');
-      const inv = localStorage.getItem('inventory');
-      const c  = localStorage.getItem('kllCounter');
-      productos = p ? JSON.parse(p) : {};
-      inventory = inv ? JSON.parse(inv) : [];
-      kllCounter = c ? parseInt(c) : 1;
-    }catch(e){ productos={}; inventory=[]; kllCounter=1; }
-    renderInventory();
-    refreshLabelSelect();
-  })();
+  // Cargar al inicio
+  try{
+    const p = localStorage.getItem('productos');
+    const inv = localStorage.getItem('inventory');
+    const c  = localStorage.getItem('kllCounter');
+    productos = p ? JSON.parse(p) : {};
+    inventory = inv ? JSON.parse(inv) : [];
+    kllCounter = c ? parseInt(c) : 1;
+  }catch(e){
+    productos = {}; inventory = []; kllCounter = 1;
+  }
 
   function saveAll(){
     localStorage.setItem('productos', JSON.stringify(productos));
@@ -137,16 +137,37 @@
     localStorage.setItem('kllCounter', String(kllCounter));
   }
 
-  /*================= Tabs =================*/
+  /*================= Tabs robustos =================*/
   const tabButtons = document.querySelectorAll('.tab-btn');
+  const sections = document.querySelectorAll('section.card');
+  let scanner = null; // se inicia bajo demanda
+
+  function showTab(tabId){
+    try{
+      tabButtons.forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+      sections.forEach(s => s.classList.toggle('hidden', s.id !== tabId));
+
+      // Escáner bajo demanda
+      if (tabId === 'tab-escanear') {
+        ensureScannerStarted();
+      } else {
+        ensureScannerStopped();
+      }
+
+      if (tabId === 'tab-etiquetas') {
+        refreshLabelSelect();
+      }
+    }catch(e){
+      console.error("Error al cambiar de pestaña:", e);
+      alert("Ocurrió un error al cambiar de pestaña. Revisa la consola (F12).");
+    }
+  }
+
   tabButtons.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      tabButtons.forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      document.querySelectorAll('section.card').forEach(s=>s.classList.add('hidden'));
-      document.getElementById(btn.dataset.tab).classList.remove('hidden');
-    });
+    btn.addEventListener('click', () => showTab(btn.dataset.tab));
   });
+  // Mostrar Registrar al arrancar
+  showTab('tab-registrar');
 
   /*================= Generar / Registrar =================*/
   function nextKLL(){
@@ -163,7 +184,7 @@
     const code = nextKLL();
     productos[code] = { nombre, tela };
 
-    // Agregar al inventario con cantidad 1
+    // Agregar al inventario con cantidad 1 y fecha actual
     const nowISO = new Date().toISOString();
     inventory.push({ barcode:code, nombre, tela, cantidad:1, dateISO:nowISO });
 
@@ -174,19 +195,29 @@
     saveAll();
     renderInventory();
     refreshLabelSelect();
-    // Cambiar a pestaña Etiquetas para imprimir rápido (opcional):
-    // document.querySelector('[data-tab="tab-etiquetas"]').click();
+    alert(`Producto guardado con código ${code}`);
+  }
+  document.getElementById('btnGenerate').addEventListener('click', generateProduct);
+
+  /*================= Escáner (lazy start) =================*/
+  function ensureScannerStarted(){
+    if (scanner) return;
+    try{
+      scanner = new Html5QrcodeScanner("reader", { fps:10, qrbox:250 });
+      scanner.render(onScanSuccess);
+    }catch(e){
+      console.error(e);
+      alert("No pude iniciar la cámara. Revisa permisos o prueba con Chrome.");
+    }
+  }
+  function ensureScannerStopped(){
+    // Html5QrcodeScanner no expone stop sencillo; este patrón evita re-crear múltiples instancias.
+    // Si necesitas liberar cámara entre tabs, podemos migrar a Html5Qrcode (nivel más bajo) y manejar start/stop manual.
   }
 
-  /*================= Escáner =================*/
-  const scanner = new Html5QrcodeScanner("reader", { fps:10, qrbox:250 });
-  scanner.render(onScanSuccess);
-
   function onScanSuccess(decodedText){
-    // Mostrar el código leído
     document.getElementById('scanCode').value = decodedText;
 
-    // Si existe en catálogo, sumar cantidad o crearlo con 1
     if(productos[decodedText]){
       const prod = productos[decodedText];
       let item = inventory.find(i=>i.barcode===decodedText);
@@ -196,7 +227,6 @@
         item = { barcode:decodedText, nombre:prod.nombre, tela:prod.tela, cantidad:1, dateISO:new Date().toISOString() };
         inventory.push(item);
       }
-      // Rellenar UI
       document.getElementById('scanName').value = prod.nombre;
       document.getElementById('scanFabric').value = prod.tela;
       document.getElementById('scanQty').value = item.cantidad;
@@ -213,6 +243,7 @@
   /*================= Inventario =================*/
   function renderInventory(){
     const wrap = document.getElementById('inventory');
+    if(!wrap) return;
     wrap.innerHTML = "";
     const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
     const m = document.getElementById('filterMonth')?.value || ""; // YYYY-MM
@@ -231,20 +262,24 @@
       const dateTxt = i.dateISO ? new Date(i.dateISO).toLocaleDateString() : "-";
       card.innerHTML = `
         <div class="top">
-          <div class="name">${i.nombre}</div>
+          <div class="name">${escapeHtml(i.nombre)}</div>
           <div class="muted">Cant: ${i.cantidad}</div>
         </div>
-        <div class="muted">Tela: ${i.tela}</div>
-        <div class="muted">Código: ${i.barcode} · Fecha: ${dateTxt}</div>
-        <svg class="bc" jsbarcode-format="CODE128" jsbarcode-value="${i.barcode}" jsbarcode-height="40"></svg>
+        <div class="muted">Tela: ${escapeHtml(i.tela)}</div>
+        <div class="muted">Código: ${escapeHtml(i.barcode)} · Fecha: ${escapeHtml(dateTxt)}</div>
+        <svg class="bc" jsbarcode-format="CODE128" jsbarcode-value="${escapeAttr(i.barcode)}" jsbarcode-height="40"></svg>
       `;
       wrap.appendChild(card);
-      JsBarcode(card.querySelector('svg')).init();
+      try{ JsBarcode(card.querySelector('svg')).init(); }
+      catch(e){ console.warn("No pude renderizar el código de barras:", e); }
     });
   }
+  document.getElementById('searchInput').addEventListener('input', renderInventory);
+  document.getElementById('filterMonth').addEventListener('change', renderInventory);
 
+  // Exportar CSV
   function exportCSV(){
-    if(inventory.length===0){ alert("No hay datos"); return; }
+    if(inventory.length===0){alert("No hay datos"); return;}
     const headers = ["Modelo","Tela","Cantidad","Código","Fecha"];
     const rows = inventory.map(i=>[
       i.nombre, i.tela, i.cantidad, i.barcode,
@@ -257,25 +292,22 @@
     a.href = url; a.download = "inventario_kll.csv"; a.click();
     URL.revokeObjectURL(url);
   }
+  document.getElementById('btnCSV').addEventListener('click', exportCSV);
 
   /*================= Etiquetas =================*/
   function refreshLabelSelect(){
     const sel = document.getElementById('labelSelect');
     if(!sel) return;
-    const prevCode = sel.value;
+    const prev = sel.value;
     sel.innerHTML = "";
-    // opciones
     inventory.forEach(i=>{
       const opt = document.createElement('option');
       opt.value = i.barcode;
       opt.textContent = `${i.nombre} · ${i.tela} · ${i.barcode}`;
       sel.appendChild(opt);
     });
-    // restaurar selección si existe
-    if(prevCode && [...sel.options].some(o=>o.value===prevCode)) sel.value = prevCode;
-    // actualizar preview
+    if(prev && [...sel.options].some(o=>o.value===prev)) sel.value = prev;
     onLabelSelectChange();
-    sel.onchange = onLabelSelectChange;
   }
 
   function onLabelSelectChange(){
@@ -291,8 +323,13 @@
     document.getElementById('pModel').textContent = item.nombre;
     document.getElementById('pFabric').textContent = item.tela;
     document.getElementById('pDate').textContent = item.dateISO ? new Date(item.dateISO).toLocaleDateString() : "";
-    JsBarcode("#pBarcode", item.barcode, {format:"CODE128", width:2, height:60, displayValue:true});
+    try{
+      JsBarcode("#pBarcode", item.barcode, {format:"CODE128", width:2, height:60, displayValue:true});
+    }catch(e){
+      console.warn("No pude pintar el barcode en preview:", e);
+    }
   }
+  document.getElementById('labelSelect').addEventListener('change', onLabelSelectChange);
 
   function printSelectedLabel(){
     const sel = document.getElementById('labelSelect');
@@ -300,11 +337,10 @@
     const item = inventory.find(i=>i.barcode===sel.value);
     if(!item){ alert("Producto no encontrado"); return; }
 
-    // Ventana exclusiva con SOLO la etiqueta
     const w = window.open('', '', 'width=420,height=360');
     const dateTxt = item.dateISO ? new Date(item.dateISO).toLocaleDateString() : "";
     let html = `
-      <html><head><title>Etiqueta ${item.barcode}</title>
+      <html><head><title>Etiqueta ${escapeHtml(item.barcode)}</title>
       <style>
         body{font-family:Arial, sans-serif; margin:0; padding:16px; text-align:center}
         .label{border:1px solid #000; padding:10px; width:320px; margin:0 auto}
@@ -322,7 +358,9 @@
           <svg id="code"></svg>
         </div>
         <script>
-          JsBarcode("#code","${item.barcode}",{format:"CODE128",width:2,height:60,displayValue:true});
+          try{
+            JsBarcode("#code","${escapeJs(item.barcode)}",{format:"CODE128",width:2,height:60,displayValue:true});
+          }catch(e){}
           window.onload = function(){ window.print(); }
         <\/script>
       </body></html>
@@ -331,12 +369,14 @@
     w.document.close();
     w.focus();
   }
+  document.getElementById('btnPrintLabel').addEventListener('click', printSelectedLabel);
 
-  // util
-  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+  // Utils de escape
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+  function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+  function escapeJs(s){ return String(s).replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$').replace(/"/g,'\\"'); }
 
-  // Actualizar combos/preview al cambiar de pestaña a Etiquetas
-  document.querySelector('[data-tab="tab-etiquetas"]').addEventListener('click', refreshLabelSelect);
+})();
 </script>
 </body>
 </html>
