@@ -10,124 +10,210 @@
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 
 <style>
-body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f0f2f5; }
-header { background:#007bff; color:white; padding:20px; text-align:center; font-size:1.5em; }
-.container { max-width:900px; margin:auto; padding:20px; }
-.card { background:white; border-radius:12px; padding:20px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
-h2 { margin-top:0; }
-input, button, select { width:100%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #ccc; }
-button { background:#007bff; color:white; border:none; cursor:pointer; font-weight:bold; }
-button:hover { background:#0056b3; }
-.inventory-list { display:grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap:15px; }
-.product-card { background:#fafafa; padding:15px; border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,0.1); text-align:center; }
-.product-card svg { margin-top:10px; }
-.filter { display:flex; gap:10px; margin-bottom:10px; }
-.filter input { flex:1; }
+  :root {
+    --primary:#2563eb; --primary-600:#1d4ed8; --bg:#f3f4f6; --card:#ffffff; --text:#111827; --muted:#6b7280; --ring: rgba(37,99,235,.15);
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text);}
+  header{background:var(--primary); color:#fff; padding:20px; text-align:center; font-weight:700; letter-spacing:.3px}
+  .container{max-width:1100px; margin:24px auto; padding:0 16px}
+  .grid{display:grid; gap:16px}
+  .grid-2{grid-template-columns: repeat(auto-fit,minmax(320px,1fr));}
+  .card{background:var(--card); border-radius:14px; padding:18px; box-shadow:0 8px 24px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.05);}
+  h2{margin:0 0 12px 0; font-size:1.15rem}
+  .row{display:flex; gap:10px; flex-wrap:wrap}
+  input, select, button{width:100%; padding:12px 14px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; color:var(--text); outline:none}
+  input:focus, select:focus{box-shadow:0 0 0 4px var(--ring); border-color: var(--primary)}
+  button{background:var(--primary); color:#fff; border:none; font-weight:700; cursor:pointer}
+  button:hover{background:var(--primary-600)}
+  .muted{color:var(--muted); font-size:.9rem}
+  .inventory-list{display:grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap:14px}
+  .product-card{border:1px solid #e5e7eb; border-radius:12px; padding:12px}
+  .product-card .top{display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .product-card .name{font-weight:700}
+  .badge{background:#eef2ff; color:#3730a3; padding:4px 8px; border-radius:999px; font-size:.75rem}
+  .controls{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px}
+  .controls > *{flex:1}
+  #reader{width:100%; max-width:420px; margin:auto}
+  .section-title{display:flex; align-items:center; justify-content:space-between}
+  .checkbox{display:flex; gap:8px; align-items:center}
 </style>
 </head>
 <body>
-
 <header>Inventario de Muebles</header>
-
 <div class="container">
 
-<!-- Generador de códigos -->
+<!-- Generador -->
 <div class="card">
-<h2>Generador de Códigos de Barras</h2>
-<input type="text" id="newName" placeholder="Nombre del mueble">
-<input type="text" id="newColor" placeholder="Tela / Color">
-<button onclick="generateProduct()">Generar código y agregar al inventario</button>
+  <div class="section-title">
+    <h2>Generador de códigos</h2>
+    <div class="muted">Crea el código, se guarda y podrás imprimir la etiqueta</div>
+  </div>
+  <div class="row">
+    <input id="newName" placeholder="Nombre del mueble (ej. Silla Oslo)">
+    <input id="newFabric" placeholder="Tela (ej. Lino Beige)">
+  </div>
+  <div class="row">
+    <button onclick="generateProduct()">Generar código y agregar</button>
+  </div>
+</div>
+
+<!-- Buscador -->
+<div class="card">
+  <h2>Buscar producto</h2>
+  <input type="text" id="searchInput" placeholder="Buscar por nombre, tela o código" oninput="updateInventoryList()">
 </div>
 
 <!-- Escáner -->
-<div class="card">
-<h2>Escanear Código</h2>
-<div id="reader" style="width:100%; max-width:400px; margin:auto;"></div>
+<div class="card grid grid-2">
+  <div>
+    <h2>Escanear código</h2>
+    <div id="reader"></div>
+  </div>
+  <div>
+    <h2>Resultado del escaneo</h2>
+    <div class="row">
+      <input id="scanCode" placeholder="Código leído" readonly>
+      <input id="scanName" placeholder="Nombre" readonly>
+      <input id="scanFabric" placeholder="Tela" readonly>
+      <input id="scanQty" placeholder="Cantidad" readonly>
+    </div>
+    <div class="muted">Al leer un código guardado, se rellenan nombre, tela y cantidad automáticamente.</div>
+  </div>
 </div>
 
 <!-- Inventario -->
 <div class="card">
-<h2>Inventario</h2>
-<div class="filter">
-<input type="month" id="filterMonth" onchange="updateInventoryList()">
-<button onclick="downloadCSV()">Descargar CSV</button>
-</div>
-<div class="inventory-list" id="inventory"></div>
+  <div class="section-title">
+    <h2>Inventario</h2>
+    <div class="row" style="gap:8px; width:420px; max-width:100%">
+      <input type="month" id="filterMonth" onchange="updateInventoryList()">
+      <button onclick="downloadCSV()">Exportar CSV</button>
+    </div>
+  </div>
+  <div id="inventory" class="inventory-list"></div>
 </div>
 
 <script>
-let productos = {}; // Diccionario de productos
-let inventory = []; // Inventario actual
+let productos = {}; // diccionario: codigo -> {nombre, tela}
+let inventory = []; // [{barcode, nombre, tela, cantidad, dateISO}]
+loadData();
 
-// Generar producto con código único
+// Generar código único con prefijo KLL
+function generarCodigoUnico(){
+  const random = Math.floor(10000 + Math.random()*90000);
+  return "KLL"+random;
+}
+
+// Generar producto
 function generateProduct(){
-    const name = document.getElementById('newName').value.trim();
-    const color = document.getElementById('newColor').value.trim();
-    if(!name || !color){ alert("Ingresa nombre y color"); return; }
+  const nombre = document.getElementById('newName').value.trim();
+  const tela = document.getElementById('newFabric').value.trim();
+  if(!nombre || !tela){ alert("Ingresa nombre y tela"); return; }
 
-    const code = "MUEB-" + Date.now(); // Código único
-    productos[code] = {nombre:name, color:color};
+  const code = generarCodigoUnico();
+  productos[code] = {nombre, tela};
 
-    // Agregar al inventario
-    const item = {barcode:code, nombre:name, color:color, date:new Date()};
-    inventory.push(item);
+  // Agregar al inventario con cantidad 1
+  inventory.push({barcode: code, nombre, tela, cantidad:1, dateISO:new Date().toISOString()});
 
-    document.getElementById('newName').value="";
-    document.getElementById('newColor').value="";
+  document.getElementById('newName').value="";
+  document.getElementById('newFabric').value="";
 
-    updateInventoryList();
+  saveData();
+  updateInventoryList();
 }
 
-// Actualizar lista de inventario
-function updateInventoryList(){
-    const list = document.getElementById('inventory');
-    list.innerHTML="";
-    const filter = document.getElementById('filterMonth').value;
-
-    inventory.forEach(item=>{
-        const itemMonth = item.date.toISOString().slice(0,7); // YYYY-MM
-        if(!filter || filter===itemMonth){
-            const card = document.createElement('div');
-            card.className="product-card";
-            card.innerHTML = `
-                <strong>${item.nombre}</strong><br>
-                Color: ${item.color}<br>
-                Código: ${item.barcode}<br>
-                Fecha: ${item.date.toLocaleDateString()}<br>
-                <svg id="svg-${item.barcode}"></svg>
-            `;
-            list.appendChild(card);
-            JsBarcode(`#svg-${item.barcode}`, item.barcode, {format:"CODE128", displayValue:true, fontSize:16});
-        }
-    });
-}
-
-// Escáner de códigos
+// Escáner
 function onScanSuccess(decodedText){
-    if(productos[decodedText]){
-        const prod = productos[decodedText];
-        alert(`Producto: ${prod.nombre}\nColor: ${prod.color}`);
-    } else {
-        alert("Producto no registrado");
-    }
-}
+  document.getElementById('scanCode').value = decodedText;
+  if(productos[decodedText]){
+    const prod = productos[decodedText];
 
-let scanner = new Html5QrcodeScanner("reader", { fps:10, qrbox:250 });
+    // Revisar si ya existe en inventario
+    const invItem = inventory.find(i=>i.barcode===decodedText);
+    if(invItem){
+      invItem.cantidad += 1;
+    } else {
+      inventory.push({barcode:decodedText, nombre:prod.nombre, tela:prod.tela, cantidad:1, dateISO:new Date().toISOString()});
+    }
+
+    document.getElementById('scanName').value = prod.nombre;
+    document.getElementById('scanFabric').value = prod.tela;
+    document.getElementById('scanQty').value = invItem ? invItem.cantidad : 1;
+
+    saveData();
+    updateInventoryList();
+  } else {
+    document.getElementById('scanName').value="No registrado";
+    document.getElementById('scanFabric').value="";
+    document.getElementById('scanQty').value="";
+  }
+}
+const scanner = new Html5QrcodeScanner("reader",{fps:10, qrbox:250});
 scanner.render(onScanSuccess);
 
-// Descargar CSV
+// Actualizar inventario
+function updateInventoryList(){
+  const wrap = document.getElementById('inventory');
+  wrap.innerHTML="";
+  const filter = document.getElementById('filterMonth').value;
+  const search = document.getElementById('searchInput').value.toLowerCase();
+
+  const data = inventory.filter(item=>{
+    const matchMonth = !filter || (item.dateISO||"").slice(0,7)===filter;
+    const matchSearch = !search || item.nombre.toLowerCase().includes(search) ||
+                        item.tela.toLowerCase().includes(search) ||
+                        item.barcode.toLowerCase().includes(search);
+    return matchMonth && matchSearch;
+  });
+
+  data.forEach(item=>{
+    const dateTxt = item.dateISO ? new Date(item.dateISO).toLocaleDateString() : "-";
+    const card = document.createElement('div');
+    card.className = "product-card";
+    card.innerHTML = `
+      <div class="top">
+        <div class="name">${item.nombre}</div>
+        <div class="muted">Cantidad: ${item.cantidad}</div>
+      </div>
+      <div class="muted">Tela: ${item.tela}</div>
+      <div class="muted">Código: ${item.barcode} | Fecha: ${dateTxt}</div>
+      <svg class="barcode" jsbarcode-format="CODE128" jsbarcode-value="${item.barcode}" jsbarcode-height="40"></svg>
+    `;
+    wrap.appendChild(card);
+    JsBarcode(card.querySelector("svg")).init();
+  });
+}
+
+// Guardar y cargar datos localmente
+function saveData(){
+  localStorage.setItem("productos", JSON.stringify(productos));
+  localStorage.setItem("inventory", JSON.stringify(inventory));
+}
+function loadData(){
+  const p = localStorage.getItem("productos");
+  if(p) productos = JSON.parse(p);
+  const i = localStorage.getItem("inventory");
+  if(i) inventory = JSON.parse(i);
+  updateInventoryList();
+}
+
+// Exportar CSV
 function downloadCSV(){
-    let csv = "codigo,nombre,color,fecha\n";
-    inventory.forEach(item=>{
-        csv += `${item.barcode},${item.nombre},${item.color},${item.date.toLocaleDateString()}\n`;
-    });
-    const blob = new Blob([csv], {type: 'text/csv'});
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `inventario_${new Date().toISOString().slice(0,10)}.csv`;
-    link.click();
+  if(inventory.length===0){alert("No hay datos"); return;}
+  const headers = ["Nombre","Tela","Cantidad","Código","Fecha"];
+  const rows = inventory.map(i=>[i.nombre,i.tela,i.cantidad,i.barcode,new Date(i.dateISO).toLocaleDateString()]);
+  let csv = headers.join(",")+"\n"+rows.map(r=>r.join(",")).join("\n");
+  const blob = new Blob([csv],{type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download="inventario_muebles.csv";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 </script>
-
 </body>
 </html>
+
