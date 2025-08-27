@@ -1,267 +1,186 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Inventario de Muebles</title>
-
-<!-- Librerías -->
-<script src="https://unpkg.com/html5-qrcode"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-
-<style>
-  :root {
-    --primary:#2563eb; --primary-600:#1d4ed8; --bg:#f3f4f6; --card:#ffffff; --text:#111827; --muted:#6b7280; --ring: rgba(37,99,235,.15);
-  }
-  *{box-sizing:border-box}
-  body{margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text);}
-  header{background:var(--primary); color:#fff; padding:20px; text-align:center; font-weight:700; letter-spacing:.3px}
-  .container{max-width:1100px; margin:24px auto; padding:0 16px}
-  .grid{display:grid; gap:16px}
-  .grid-2{grid-template-columns: repeat(auto-fit,minmax(320px,1fr));}
-  .card{background:var(--card); border-radius:14px; padding:18px; box-shadow:0 8px 24px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.05);}
-  h2{margin:0 0 12px 0; font-size:1.15rem}
-  .row{display:flex; gap:10px; flex-wrap:wrap}
-  input, select, button{width:100%; padding:12px 14px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; color:var(--text); outline:none}
-  input:focus, select:focus{box-shadow:0 0 0 4px var(--ring); border-color: var(--primary)}
-  button{background:var(--primary); color:#fff; border:none; font-weight:700; cursor:pointer}
-  button:hover{background:var(--primary-600)}
-  .muted{color:var(--muted); font-size:.9rem}
-  .inventory-list{display:grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap:14px}
-  .product-card{border:1px solid #e5e7eb; border-radius:12px; padding:12px}
-  .product-card .top{display:flex; align-items:center; justify-content:space-between; gap:10px}
-  .product-card .name{font-weight:700}
-  .badge{background:#eef2ff; color:#3730a3; padding:4px 8px; border-radius:999px; font-size:.75rem}
-  .controls{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px}
-  .controls > *{flex:1}
-  #reader{width:100%; max-width:420px; margin:auto}
-  .section-title{display:flex; align-items:center; justify-content:space-between}
-  .checkbox{display:flex; gap:8px; align-items:center}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventario de Muebles</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #007bff;
+      color: white;
+      padding: 15px;
+      text-align: center;
+    }
+    main {
+      padding: 20px;
+      max-width: 900px;
+      margin: auto;
+    }
+    section {
+      background: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    h2 {
+      margin-top: 0;
+      color: #007bff;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px 0;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      background: #f9f9f9;
+      padding: 10px;
+      margin-bottom: 5px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+    .search-box {
+      margin-bottom: 15px;
+    }
+  </style>
 </head>
 <body>
-<header>Inventario de Muebles</header>
-<div class="container">
+  <header>
+    <h1>Inventario de Muebles</h1>
+  </header>
+  <main>
+    <!-- Registro manual de productos -->
+    <section>
+      <h2>Registrar Producto</h2>
+      <input type="text" id="productName" placeholder="Nombre del producto (ej: Sillón Roma)">
+      <input type="text" id="productFabric" placeholder="Tela (ej: Lino Beige)">
+      <button onclick="registerProduct()">Registrar y generar código</button>
+    </section>
 
-<!-- Generador -->
-<div class="card">
-  <div class="section-title">
-    <h2>Generador de códigos</h2>
-    <div class="muted">Crea el código, se guarda y podrás imprimir la etiqueta</div>
-  </div>
-  <div class="row">
-    <input id="newName" placeholder="Nombre del mueble (ej. Silla Oslo)">
-    <input id="newFabric" placeholder="Tela (ej. Lino Beige)">
-  </div>
-  <div class="row">
-    <button onclick="generateProduct()">Generar código y agregar</button>
-  </div>
-</div>
+    <!-- Inventario -->
+    <section>
+      <h2>Inventario</h2>
+      <input type="text" id="search" class="search-box" placeholder="Buscar producto..." onkeyup="searchInventory()">
+      <ul id="inventory"></ul>
+    </section>
+  </main>
 
-<!-- Buscador -->
-<div class="card">
-  <h2>Buscar producto</h2>
-  <input type="text" id="searchInput" placeholder="Buscar por nombre, tela o código" oninput="updateInventoryList()">
-</div>
+  <!-- Librería para códigos de barras -->
+  <script src="https://cdn.jsdelivr.net/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
 
-<!-- Escáner -->
-<div class="card grid grid-2">
-  <div>
-    <h2>Escanear código</h2>
-    <div id="reader"></div>
-  </div>
-  <div>
-    <h2>Resultado del escaneo</h2>
-    <div class="row">
-      <input id="scanCode" placeholder="Código leído" readonly>
-      <input id="scanName" placeholder="Nombre" readonly>
-      <input id="scanFabric" placeholder="Tela" readonly>
-      <input id="scanQty" placeholder="Cantidad" readonly>
-    </div>
-    <div class="muted">Al leer un código guardado, se rellenan nombre, tela y cantidad automáticamente.</div>
-  </div>
-</div>
+  <script>
+    let inventory = [];
+    let productCounter = 1;
 
-<!-- Inventario -->
-<div class="card">
-  <div class="section-title">
-    <h2>Inventario</h2>
-    <div class="row" style="gap:8px; width:420px; max-width:100%">
-      <input type="month" id="filterMonth" onchange="updateInventoryList()">
-      <button onclick="downloadCSV()">Exportar CSV</button>
-      <button onclick="printAllLabels()">Imprimir todas las etiquetas</button>
-    </div>
-  </div>
-  <div id="inventory" class="inventory-list"></div>
-</div>
+    // Registrar producto y generar código
+    function registerProduct() {
+      const name = document.getElementById("productName").value;
+      const fabric = document.getElementById("productFabric").value;
+      const date = new Date().toLocaleDateString("es-MX");
 
-<script>
-let productos = {}; // diccionario: codigo -> {nombre, tela}
-let inventory = []; // [{barcode, nombre, tela, cantidad, dateISO}]
-loadData();
+      if (!name || !fabric) {
+        alert("Por favor completa todos los campos.");
+        return;
+      }
 
-// Generar código único con prefijo KLL
-function generarCodigoUnico(){
-  const random = Math.floor(10000 + Math.random()*90000);
-  return "KLL"+random;
-}
+      const code = "KLL-" + String(productCounter).padStart(4, "0");
+      productCounter++;
 
-// Generar producto
-function generateProduct(){
-  const nombre = document.getElementById('newName').value.trim();
-  const tela = document.getElementById('newFabric').value.trim();
-  if(!nombre || !tela){ alert("Ingresa nombre y tela"); return; }
+      // Guardar en inventario
+      let existing = inventory.find(item => item.code === code);
+      if (existing) {
+        existing.quantity++;
+      } else {
+        inventory.push({ code, name, fabric, date, quantity: 1 });
+      }
 
-  const code = generarCodigoUnico();
-  productos[code] = {nombre, tela};
+      updateInventory();
+      generateLabel(code, name, fabric, date);
 
-  inventory.push({barcode: code, nombre, tela, cantidad:1, dateISO:new Date().toISOString()});
-
-  document.getElementById('newName').value="";
-  document.getElementById('newFabric').value="";
-
-  saveData();
-  updateInventoryList();
-}
-
-// Escáner
-function onScanSuccess(decodedText){
-  document.getElementById('scanCode').value = decodedText;
-  if(productos[decodedText]){
-    const prod = productos[decodedText];
-
-    let invItem = inventory.find(i=>i.barcode===decodedText);
-    if(invItem){
-      invItem.cantidad += 1;
-    } else {
-      invItem = {barcode:decodedText, nombre:prod.nombre, tela:prod.tela, cantidad:1, dateISO:new Date().toISOString()};
-      inventory.push(invItem);
+      // limpiar campos
+      document.getElementById("productName").value = "";
+      document.getElementById("productFabric").value = "";
     }
 
-    document.getElementById('scanName').value = prod.nombre;
-    document.getElementById('scanFabric').value = prod.tela;
-    document.getElementById('scanQty').value = invItem.cantidad;
+    // Actualizar lista de inventario
+    function updateInventory() {
+      const list = document.getElementById("inventory");
+      list.innerHTML = "";
+      inventory.forEach(item => {
+        const li = document.createElement("li");
+        li.textContent = `${item.name} - Tela: ${item.fabric} - Código: ${item.code} - Cantidad: ${item.quantity} - Fecha: ${item.date}`;
+        list.appendChild(li);
+      });
+    }
 
-    saveData();
-    updateInventoryList();
-  } else {
-    document.getElementById('scanName').value="No registrado";
-    document.getElementById('scanFabric').value="";
-    document.getElementById('scanQty').value="";
-  }
-}
-const scanner = new Html5QrcodeScanner("reader",{fps:10, qrbox:250});
-scanner.render(onScanSuccess);
+    // Buscador en el inventario
+    function searchInventory() {
+      const query = document.getElementById("search").value.toLowerCase();
+      const list = document.getElementById("inventory");
+      list.innerHTML = "";
+      inventory.filter(item =>
+        item.name.toLowerCase().includes(query) ||
+        item.fabric.toLowerCase().includes(query) ||
+        item.code.toLowerCase().includes(query)
+      ).forEach(item => {
+        const li = document.createElement("li");
+        li.textContent = `${item.name} - Tela: ${item.fabric} - Código: ${item.code} - Cantidad: ${item.quantity} - Fecha: ${item.date}`;
+        list.appendChild(li);
+      });
+    }
 
-// Actualizar inventario
-function updateInventoryList(){
-  const wrap = document.getElementById('inventory');
-  wrap.innerHTML="";
-  const filter = document.getElementById('filterMonth').value;
-  const search = document.getElementById('searchInput').value.toLowerCase();
-
-  const data = inventory.filter(item=>{
-    const matchMonth = !filter || (item.dateISO||"").slice(0,7)===filter;
-    const matchSearch = !search || item.nombre.toLowerCase().includes(search) ||
-                        item.tela.toLowerCase().includes(search) ||
-                        item.barcode.toLowerCase().includes(search);
-    return matchMonth && matchSearch;
-  });
-
-  data.forEach(item=>{
-    const dateTxt = item.dateISO ? new Date(item.dateISO).toLocaleDateString() : "-";
-    const card = document.createElement('div');
-    card.className = "product-card";
-    card.innerHTML = `
-      <div class="top">
-        <div class="name">${item.nombre}</div>
-        <div class="muted">Cantidad: ${item.cantidad}</div>
-      </div>
-      <div class="muted">Tela: ${item.tela}</div>
-      <div class="muted">Código: ${item.barcode} | Fecha: ${dateTxt}</div>
-      <svg class="barcode" jsbarcode-format="CODE128" jsbarcode-value="${item.barcode}" jsbarcode-height="40"></svg>
-    `;
-    wrap.appendChild(card);
-    JsBarcode(card.querySelector("svg")).init();
-  });
-}
-
-// Guardar y cargar datos localmente
-function saveData(){
-  localStorage.setItem("productos", JSON.stringify(productos));
-  localStorage.setItem("inventory", JSON.stringify(inventory));
-}
-function loadData(){
-  const p = localStorage.getItem("productos");
-  if(p) productos = JSON.parse(p);
-  const i = localStorage.getItem("inventory");
-  if(i) inventory = JSON.parse(i);
-  updateInventoryList();
-}
-
-// Exportar CSV
-function downloadCSV(){
-  if(inventory.length===0){alert("No hay datos"); return;}
-  const headers = ["Nombre","Tela","Cantidad","Código","Fecha"];
-  const rows = inventory.map(i=>[i.nombre,i.tela,i.cantidad,i.barcode,new Date(i.dateISO).toLocaleDateString()]);
-  let csv = headers.join(",")+"\n"+rows.map(r=>r.join(",")).join("\n");
-  const blob = new Blob([csv],{type:"text/csv"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download="inventario_muebles.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// Imprimir etiquetas
-function printAllLabels(){
-  if(inventory.length === 0){ alert("No hay productos para imprimir"); return; }
-
-  const printWindow = window.open('', '', 'width=800,height=600');
-
-  let html = `
-  <html>
-  <head>
-    <title>Etiquetas</title>
-    <style>
-      body{font-family: Arial, sans-serif; margin:20px;}
-      .label{border:1px solid #000; border-radius:8px; padding:12px; width:300px; margin-bottom:16px;}
-      .label h2{margin:0; font-size:1.2rem;}
-      .label .fabric, .label .code, .label .date{text-align:left; margin:2px 0;}
-      svg{margin-top:8px;}
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-  </head>
-  <body>
-  `;
-
-  inventory.forEach(item => {
-    const dateTxt = new Date(item.dateISO).toLocaleDateString();
-    html += `
-      <div class="label">
-        <h2>${item.nombre}</h2>
-        <div class="fabric">Tela: ${item.tela}</div>
-        <div class="code">Código: ${item.barcode}</div>
-        <div class="date">Fecha: ${dateTxt}</div>
-        <svg jsbarcode-format="CODE128" jsbarcode-value="${item.barcode}" jsbarcode-height="40"></svg>
-      </div>
-    `;
-  });
-
-  html += `
-    <script>
-      JsBarcode(document.querySelectorAll("svg")).init();
-      window.onload = function(){ window.print(); }
-    </script>
-  </body>
-  </html>
-  `;
-
-  printWindow.document.write(html);
-  printWindow.document.close();
-  printWindow.focus();
-}
-</script>
+    // Generar etiqueta para imprimir
+    function generateLabel(code, name, fabric, date) {
+      const printWindow = window.open("", "_blank", "width=400,height=300");
+      printWindow.document.write(`
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; }
+            .label { border: 1px solid #000; padding: 10px; }
+            .model { font-size: 20px; font-weight: bold; }
+            .fabric { font-size: 16px; margin-top: 5px; }
+            .date { font-size: 14px; margin-top: 5px; }
+            svg { margin-top: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="label">
+            <div class="model">${name}</div>
+            <div class="fabric">${fabric}</div>
+            <div class="date">${date}</div>
+            <svg id="barcode"></svg>
+          </div>
+          <script src="https://cdn.jsdelivr.net/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+          <script>
+            JsBarcode("#barcode", "${code}", {format: "CODE128", width: 2, height: 60, displayValue: true});
+            window.print();
+          <\/script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+  </script>
 </body>
 </html>
