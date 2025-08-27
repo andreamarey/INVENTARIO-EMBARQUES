@@ -89,6 +89,7 @@
     <div class="row" style="gap:8px; width:420px; max-width:100%">
       <input type="month" id="filterMonth" onchange="updateInventoryList()">
       <button onclick="downloadCSV()">Exportar CSV</button>
+      <button onclick="printAllLabels()">Imprimir todas las etiquetas</button>
     </div>
   </div>
   <div id="inventory" class="inventory-list"></div>
@@ -131,16 +132,17 @@ function onScanSuccess(decodedText){
     const prod = productos[decodedText];
 
     // Revisar si ya existe en inventario
-    const invItem = inventory.find(i=>i.barcode===decodedText);
+    let invItem = inventory.find(i=>i.barcode===decodedText);
     if(invItem){
       invItem.cantidad += 1;
     } else {
-      inventory.push({barcode:decodedText, nombre:prod.nombre, tela:prod.tela, cantidad:1, dateISO:new Date().toISOString()});
+      invItem = {barcode:decodedText, nombre:prod.nombre, tela:prod.tela, cantidad:1, dateISO:new Date().toISOString()};
+      inventory.push(invItem);
     }
 
     document.getElementById('scanName').value = prod.nombre;
     document.getElementById('scanFabric').value = prod.tela;
-    document.getElementById('scanQty').value = invItem ? invItem.cantidad : 1;
+    document.getElementById('scanQty').value = invItem.cantidad;
 
     saveData();
     updateInventoryList();
@@ -213,7 +215,43 @@ function downloadCSV(){
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// Imprimir etiquetas
+function printAllLabels(){
+  if(inventory.length === 0){ alert("No hay productos para imprimir"); return; }
+
+  const printWindow = window.open('', '', 'width=800,height=600');
+  printWindow.document.write('<html><head><title>Etiquetas</title>');
+  printWindow.document.write('<style>');
+  printWindow.document.write(`
+    body{font-family: Arial, sans-serif; margin:20px;}
+    .label{border:1px solid #000; border-radius:8px; padding:12px; width:300px; margin-bottom:16px;}
+    .label h2{margin:0; font-size:1.2rem;}
+    .label .fabric, .label .code, .label .date{text-align:left; margin:2px 0;}
+    svg{margin-top:8px;}
+  `);
+  printWindow.document.write('</style></head><body>');
+
+  inventory.forEach(item => {
+    const dateTxt = new Date(item.dateISO).toLocaleDateString();
+    printWindow.document.write(`
+      <div class="label">
+        <h2>${item.nombre}</h2>
+        <div class="fabric">Tela: ${item.tela}</div>
+        <div class="code">Código: ${item.barcode}</div>
+        <div class="date">Fecha: ${dateTxt}</div>
+        <svg jsbarcode-format="CODE128" jsbarcode-value="${item.barcode}" jsbarcode-height="40"></svg>
+      </div>
+    `);
+  });
+
+  printWindow.document.write('<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>');
+  printWindow.document.write('<script>JsBarcode(document.querySelectorAll("svg")).init();</script>');
+  printWindow.document.write('</body></html>');
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+}
 </script>
 </body>
 </html>
-
