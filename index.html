@@ -1,152 +1,126 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inventario con Escáner</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f9f9f9;
-      margin: 0;
-      padding: 20px;
-      color: #333;
-    }
-    header {
-      text-align: center;
-      padding: 15px;
-      background-color: #007bff;
-      color: white;
-      border-radius: 8px;
-      margin-bottom: 20px;
-    }
-    h1 {
-      margin: 0;
-    }
-    .scanner, .form, .inventory-list {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-    .scanner h2, .form h2, .inventory-list h2 {
-      margin-top: 0;
-    }
-    input, button {
-      padding: 10px;
-      margin: 5px 0;
-      width: 100%;
-      box-sizing: border-box;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      font-size: 14px;
-    }
-    button {
-      background-color: #007bff;
-      color: white;
-      cursor: pointer;
-      border: none;
-    }
-    button:hover {
-      background-color: #0056b3;
-    }
-    ul {
-      list-style: none;
-      padding: 0;
-    }
-    li {
-      background: #f4f4f4;
-      margin: 5px 0;
-      padding: 10px;
-      border-radius: 6px;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventario de Muebles con Código de Barras</title>
+
+<!-- Librerías -->
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+
+<style>
+body { font-family: Arial; padding: 20px; background:#f4f4f4; }
+header { text-align:center; background:#007bff; color:white; padding:15px; border-radius:8px; margin-bottom:20px; }
+.card { background:white; padding:20px; border-radius:10px; margin-bottom:20px; box-shadow:0 2px 6px rgba(0,0,0,0.1); max-width:700px; margin:auto; }
+input, button, select { width:100%; padding:10px; margin:5px 0; border-radius:6px; border:1px solid #ccc; }
+button { background:#007bff; color:white; border:none; cursor:pointer; }
+button:hover { background:#0056b3; }
+ul { padding:0; list-style:none; }
+li { padding:10px; border-bottom:1px solid #eee; }
+.barcode { margin-top:10px; text-align:center; }
+</style>
 </head>
 <body>
-  <header>
-    <h1>Inventario con Escáner</h1>
-  </header>
 
-  <div class="scanner">
-    <h2>Escáner</h2>
-    <div id="reader" style="width:100%; max-width:400px; margin:auto;"></div>
-    <button onclick="startScanner()">Iniciar escaneo</button>
-  </div>
+<header><h1>Inventario de Muebles</h1></header>
 
-  <div class="form">
-    <h2>Registrar producto</h2>
-    <input type="text" id="barcode" placeholder="Código escaneado">
-    <input type="text" id="productName" placeholder="Nombre del producto">
-    <input type="number" id="quantity" placeholder="Cantidad">
-    <button onclick="addToInventory()">Agregar al inventario</button>
-  </div>
+<!-- Pestaña: Generador de Códigos -->
+<div class="card">
+<h2>Generador de Códigos de Barras</h2>
+<input type="text" id="newName" placeholder="Nombre del mueble">
+<input type="text" id="newColor" placeholder="Tela/Color">
+<button onclick="generateProduct()">Generar código y agregar al inventario</button>
 
-  <div class="inventory-list">
-    <h2>Inventario</h2>
-    <ul id="inventory"></ul>
-  </div>
+<div class="barcode">
+<svg id="barcodeSvg"></svg>
+</div>
+</div>
 
-  <!-- Librería para el escáner -->
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  <script>
-    let inventory = [];
-    let scanner; // guardamos el escáner para poder detenerlo
+<!-- Pestaña: Escáner -->
+<div class="card">
+<h2>Escanear Código</h2>
+<div id="reader" style="width:100%; max-width:400px; margin:auto;"></div>
+</div>
 
-    function addToInventory() {
-      const barcode = document.getElementById('barcode').value;
-      const name = document.getElementById('productName').value;
-      const quantity = parseInt(document.getElementById('quantity').value);
+<!-- Pestaña: Inventario -->
+<div class="card">
+<h2>Inventario</h2>
+<label>Filtrar por mes:</label>
+<input type="month" id="filterMonth" onchange="updateInventoryList()">
+<ul id="inventory"></ul>
+<button onclick="downloadCSV()">Descargar CSV</button>
+</div>
 
-      if (barcode && name && quantity) {
-        // Buscar si ya existe el producto
-        let existing = inventory.find(item => item.barcode === barcode);
-        if (existing) {
-          existing.quantity += quantity;
-        } else {
-          inventory.push({ barcode, name, quantity, date: new Date().toLocaleDateString() });
+<script>
+let productos = {}; // Diccionario de productos
+let inventory = []; // Inventario actual
+
+// Generador de producto con código único
+function generateProduct(){
+    const name = document.getElementById('newName').value;
+    const color = document.getElementById('newColor').value;
+    if(!name || !color){ alert("Ingresa nombre y color"); return; }
+    
+    const code = "MUEB-" + Date.now(); // código único
+    productos[code] = {nombre:name, color:color};
+
+    // Mostrar código de barras
+    JsBarcode("#barcodeSvg", code, {format:"CODE128", displayValue:true, fontSize:16});
+    
+    // Agregar al inventario con fecha actual
+    inventory.push({barcode:code, nombre:name, color:color, date:new Date()});
+
+    // Limpiar inputs
+    document.getElementById('newName').value="";
+    document.getElementById('newColor').value="";
+
+    updateInventoryList();
+}
+
+// Escáner de códigos
+function onScanSuccess(decodedText){
+    document.getElementById('barcodeInput')?.value = decodedText;
+    if(productos[decodedText]){
+        const prod = productos[decodedText];
+        alert(`Producto: ${prod.nombre}\nColor: ${prod.color}`);
+    } else {
+        alert("Producto no registrado");
+    }
+}
+
+let scanner = new Html5QrcodeScanner("reader", { fps:10, qrbox:250 });
+scanner.render(onScanSuccess);
+
+// Actualizar lista de inventario
+function updateInventoryList(){
+    const list = document.getElementById('inventory');
+    list.innerHTML="";
+    const filter = document.getElementById('filterMonth').value;
+    
+    inventory.forEach(item=>{
+        let itemMonth = item.date.toISOString().slice(0,7); // YYYY-MM
+        if(!filter || itemMonth===filter){
+            const li = document.createElement('li');
+            li.textContent=`${item.nombre} - Color: ${item.color} - Código: ${item.barcode} - Fecha: ${item.date.toLocaleDateString()}`;
+            list.appendChild(li);
         }
-        updateInventoryList();
-        document.getElementById('barcode').value = '';
-        document.getElementById('productName').value = '';
-        document.getElementById('quantity').value = '';
-      }
-    }
+    });
+}
 
-    function updateInventoryList() {
-      const list = document.getElementById('inventory');
-      list.innerHTML = '';
-      inventory.forEach(item => {
-        const li = document.createElement('li');
-        li.textContent = `${item.name} - Código: ${item.barcode} - Cantidad: ${item.quantity} - Fecha: ${item.date}`;
-        list.appendChild(li);
-      });
-    }
+// Descargar CSV
+function downloadCSV(){
+    let csv = "codigo,nombre,color,fecha\n";
+    inventory.forEach(item=>{
+        csv += `${item.barcode},${item.nombre},${item.color},${item.date.toLocaleDateString()}\n`;
+    });
+    const blob = new Blob([csv], {type: 'text/csv'});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `inventario_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+}
+</script>
 
-    function startScanner() {
-      if (scanner) {
-        scanner.clear();
-      }
-      scanner = new Html5QrcodeScanner(
-        "reader",
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 150 },
-          formatsToSupport: [
-            Html5QrcodeSupportedFormats.QR_CODE,
-            Html5QrcodeSupportedFormats.CODE_128,
-            Html5QrcodeSupportedFormats.EAN_13,
-            Html5QrcodeSupportedFormats.UPC_A
-          ]
-        },
-        false
-      );
-
-      scanner.render((decodedText, decodedResult) => {
-        document.getElementById('barcode').value = decodedText;
-        scanner.clear(); // detiene el escáner cuando ya encontró algo
-      });
-    }
-  </script>
 </body>
 </html>
