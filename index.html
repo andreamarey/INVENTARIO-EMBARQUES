@@ -115,7 +115,6 @@ function generateProduct(){
   const code = generarCodigoUnico();
   productos[code] = {nombre, tela};
 
-  // Agregar al inventario con cantidad 1
   inventory.push({barcode: code, nombre, tela, cantidad:1, dateISO:new Date().toISOString()});
 
   document.getElementById('newName').value="";
@@ -131,7 +130,6 @@ function onScanSuccess(decodedText){
   if(productos[decodedText]){
     const prod = productos[decodedText];
 
-    // Revisar si ya existe en inventario
     let invItem = inventory.find(i=>i.barcode===decodedText);
     if(invItem){
       invItem.cantidad += 1;
@@ -221,20 +219,26 @@ function printAllLabels(){
   if(inventory.length === 0){ alert("No hay productos para imprimir"); return; }
 
   const printWindow = window.open('', '', 'width=800,height=600');
-  printWindow.document.write('<html><head><title>Etiquetas</title>');
-  printWindow.document.write('<style>');
-  printWindow.document.write(`
-    body{font-family: Arial, sans-serif; margin:20px;}
-    .label{border:1px solid #000; border-radius:8px; padding:12px; width:300px; margin-bottom:16px;}
-    .label h2{margin:0; font-size:1.2rem;}
-    .label .fabric, .label .code, .label .date{text-align:left; margin:2px 0;}
-    svg{margin-top:8px;}
-  `);
-  printWindow.document.write('</style></head><body>');
+
+  let html = `
+  <html>
+  <head>
+    <title>Etiquetas</title>
+    <style>
+      body{font-family: Arial, sans-serif; margin:20px;}
+      .label{border:1px solid #000; border-radius:8px; padding:12px; width:300px; margin-bottom:16px;}
+      .label h2{margin:0; font-size:1.2rem;}
+      .label .fabric, .label .code, .label .date{text-align:left; margin:2px 0;}
+      svg{margin-top:8px;}
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  </head>
+  <body>
+  `;
 
   inventory.forEach(item => {
     const dateTxt = new Date(item.dateISO).toLocaleDateString();
-    printWindow.document.write(`
+    html += `
       <div class="label">
         <h2>${item.nombre}</h2>
         <div class="fabric">Tela: ${item.tela}</div>
@@ -242,15 +246,21 @@ function printAllLabels(){
         <div class="date">Fecha: ${dateTxt}</div>
         <svg jsbarcode-format="CODE128" jsbarcode-value="${item.barcode}" jsbarcode-height="40"></svg>
       </div>
-    `);
+    `;
   });
 
-  printWindow.document.write('<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>');
-  printWindow.document.write('<script>JsBarcode(document.querySelectorAll("svg")).init();</script>');
-  printWindow.document.write('</body></html>');
+  html += `
+    <script>
+      JsBarcode(document.querySelectorAll("svg")).init();
+      window.onload = function(){ window.print(); }
+    </script>
+  </body>
+  </html>
+  `;
+
+  printWindow.document.write(html);
   printWindow.document.close();
   printWindow.focus();
-  printWindow.print();
 }
 </script>
 </body>
