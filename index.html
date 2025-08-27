@@ -3,189 +3,150 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inventario de Muebles</title>
-  <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- html5-qrcode -->
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <title>Inventario con Escáner</title>
   <style>
-    input, button {
-      font-size: 1.2rem;
-      padding: 12px;
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 20px;
+      color: #333;
     }
-    .table-responsive {
-      max-height: 400px;
-      overflow-y: auto;
+    header {
+      text-align: center;
+      padding: 15px;
+      background-color: #007bff;
+      color: white;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      margin: 0;
+    }
+    .scanner, .form, .inventory-list {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .scanner h2, .form h2, .inventory-list h2 {
+      margin-top: 0;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px 0;
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      border: none;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      background: #f4f4f4;
+      margin: 5px 0;
+      padding: 10px;
+      border-radius: 6px;
     }
   </style>
 </head>
-<body class="bg-light">
-
-  <!-- Encabezado -->
-  <header class="bg-primary text-white text-center py-4 mb-4 shadow">
-    <h1 class="fw-bold fs-4">Inventario de Muebles</h1>
+<body>
+  <header>
+    <h1>Inventario con Escáner</h1>
   </header>
 
-  <div class="container">
-
-    <!-- Escáner -->
-    <div class="card mb-4 shadow-sm">
-      <div class="card-header bg-primary text-white">
-        <h2 class="h6 mb-0">📷 Escáner (Code128 / QR)</h2>
-      </div>
-      <div class="card-body text-center">
-        <div id="reader" class="w-100 mb-3"></div>
-        <input type="text" id="barcode" class="form-control mb-2" placeholder="Código escaneado">
-        <button class="btn btn-success w-100 mb-2" onclick="stopScanner()">Detener escaneo</button>
-      </div>
-    </div>
-
-    <!-- Formulario -->
-    <div class="card mb-4 shadow-sm">
-      <div class="card-header bg-success text-white">
-        <h2 class="h6 mb-0">➕ Registrar producto</h2>
-      </div>
-      <div class="card-body">
-        <div class="mb-3">
-          <input type="text" id="productName" class="form-control" placeholder="Nombre del producto">
-        </div>
-        <div class="mb-3">
-          <input type="number" id="quantity" class="form-control" placeholder="Cantidad">
-        </div>
-        <button class="btn btn-success w-100" onclick="addToInventory()">Agregar al inventario</button>
-      </div>
-    </div>
-
-    <!-- Barra mensual -->
-    <div class="mb-4">
-      <label>Registros de este mes:</label>
-      <div class="progress">
-        <div id="monthProgress" class="progress-bar" role="progressbar" style="width:0%">0 registros</div>
-      </div>
-    </div>
-
-    <!-- Inventario -->
-    <div class="card shadow-sm mb-4">
-      <div class="card-header bg-dark text-white">
-        <h2 class="h6 mb-0">📦 Inventario</h2>
-      </div>
-      <div class="card-body p-0 table-responsive">
-        <table class="table table-striped table-hover mb-0">
-          <thead class="table-dark">
-            <tr>
-              <th>Código</th>
-              <th>Producto</th>
-              <th>Cantidad</th>
-              <th>Fecha</th>
-            </tr>
-          </thead>
-          <tbody id="inventory"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Exportar -->
-    <button class="btn btn-primary w-100 mb-4" onclick="exportInventory()">📤 Exportar a CSV</button>
+  <div class="scanner">
+    <h2>Escáner</h2>
+    <div id="reader" style="width:100%; max-width:400px; margin:auto;"></div>
+    <button onclick="startScanner()">Iniciar escaneo</button>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <div class="form">
+    <h2>Registrar producto</h2>
+    <input type="text" id="barcode" placeholder="Código escaneado">
+    <input type="text" id="productName" placeholder="Nombre del producto">
+    <input type="number" id="quantity" placeholder="Cantidad">
+    <button onclick="addToInventory()">Agregar al inventario</button>
+  </div>
+
+  <div class="inventory-list">
+    <h2>Inventario</h2>
+    <ul id="inventory"></ul>
+  </div>
+
+  <!-- Librería para el escáner -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <script>
-    // Cargar inventario desde LocalStorage
-    let inventory = JSON.parse(localStorage.getItem('inventory')) || [];
-    updateInventoryList();
-    updateMonthProgress();
+    let inventory = [];
+    let scanner; // guardamos el escáner para poder detenerlo
 
-    // Escáner con html5-qrcode
-    const html5QrcodeScanner = new Html5Qrcode("reader");
-    function startScanner() {
-      html5QrcodeScanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (decodedText, decodedResult) => {
-          document.getElementById('barcode').value = decodedText;
-        }
-      ).catch(err => console.log(err));
-    }
-
-    function stopScanner() {
-      html5QrcodeScanner.stop().then(() => console.log("Escaneo detenido"));
-    }
-
-    // Agregar producto al inventario
     function addToInventory() {
       const barcode = document.getElementById('barcode').value;
       const name = document.getElementById('productName').value;
       const quantity = parseInt(document.getElementById('quantity').value);
-      const today = new Date().toISOString().split('T')[0]; // Fecha YYYY-MM-DD
 
       if (barcode && name && quantity) {
-        const existingProduct = inventory.find(item => item.barcode === barcode);
-        if (existingProduct) {
-          existingProduct.quantity += quantity;
-          existingProduct.date = today; // Actualizar fecha al último registro
+        // Buscar si ya existe el producto
+        let existing = inventory.find(item => item.barcode === barcode);
+        if (existing) {
+          existing.quantity += quantity;
         } else {
-          inventory.push({ barcode, name, quantity, date: today });
+          inventory.push({ barcode, name, quantity, date: new Date().toLocaleDateString() });
         }
-
-        // Guardar en LocalStorage
-        localStorage.setItem('inventory', JSON.stringify(inventory));
-
         updateInventoryList();
-        updateMonthProgress();
-
-        // Limpiar campos
         document.getElementById('barcode').value = '';
         document.getElementById('productName').value = '';
         document.getElementById('quantity').value = '';
       }
     }
 
-    // Actualizar tabla
     function updateInventoryList() {
       const list = document.getElementById('inventory');
       list.innerHTML = '';
       inventory.forEach(item => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${item.barcode}</td>
-          <td>${item.name}</td>
-          <td>${item.quantity}</td>
-          <td>${item.date}</td>
-        `;
-        list.appendChild(row);
+        const li = document.createElement('li');
+        li.textContent = `${item.name} - Código: ${item.barcode} - Cantidad: ${item.quantity} - Fecha: ${item.date}`;
+        list.appendChild(li);
       });
     }
 
-    // Actualizar barra mensual
-    function updateMonthProgress() {
-      const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
-      const monthItems = inventory.filter(item => {
-        const date = new Date(item.date);
-        return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+    function startScanner() {
+      if (scanner) {
+        scanner.clear();
+      }
+      scanner = new Html5QrcodeScanner(
+        "reader",
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 150 },
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.UPC_A
+          ]
+        },
+        false
+      );
+
+      scanner.render((decodedText, decodedResult) => {
+        document.getElementById('barcode').value = decodedText;
+        scanner.clear(); // detiene el escáner cuando ya encontró algo
       });
-      const percentage = Math.min((monthItems.length / 100) * 100, 100); // 100 registros referencia
-      const progressBar = document.getElementById('monthProgress');
-      progressBar.style.width = percentage + '%';
-      progressBar.textContent = monthItems.length + ' registros';
     }
-
-    // Exportar CSV
-    function exportInventory() {
-      if (inventory.length === 0) return alert("No hay productos para exportar.");
-      const data = inventory.map(item => `${item.barcode},${item.name},${item.quantity},${item.date}`).join('\n');
-      const blob = new Blob([data], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'inventario.csv';
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    // Inicia escáner automáticamente
-    startScanner();
   </script>
 </body>
 </html>
