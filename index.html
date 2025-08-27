@@ -3,84 +3,107 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Inventario de Muebles con Código de Barras</title>
+<title>Inventario de Muebles</title>
 
 <!-- Librerías -->
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 
 <style>
-body { font-family: Arial; padding: 20px; background:#f4f4f4; }
-header { text-align:center; background:#007bff; color:white; padding:15px; border-radius:8px; margin-bottom:20px; }
-.card { background:white; padding:20px; border-radius:10px; margin-bottom:20px; box-shadow:0 2px 6px rgba(0,0,0,0.1); max-width:700px; margin:auto; }
-input, button, select { width:100%; padding:10px; margin:5px 0; border-radius:6px; border:1px solid #ccc; }
-button { background:#007bff; color:white; border:none; cursor:pointer; }
+body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f0f2f5; }
+header { background:#007bff; color:white; padding:20px; text-align:center; font-size:1.5em; }
+.container { max-width:900px; margin:auto; padding:20px; }
+.card { background:white; border-radius:12px; padding:20px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+h2 { margin-top:0; }
+input, button, select { width:100%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #ccc; }
+button { background:#007bff; color:white; border:none; cursor:pointer; font-weight:bold; }
 button:hover { background:#0056b3; }
-ul { padding:0; list-style:none; }
-li { padding:10px; border-bottom:1px solid #eee; }
-.barcode { margin-top:10px; text-align:center; }
+.inventory-list { display:grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap:15px; }
+.product-card { background:#fafafa; padding:15px; border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,0.1); text-align:center; }
+.product-card svg { margin-top:10px; }
+.filter { display:flex; gap:10px; margin-bottom:10px; }
+.filter input { flex:1; }
 </style>
 </head>
 <body>
 
-<header><h1>Inventario de Muebles</h1></header>
+<header>Inventario de Muebles</header>
 
-<!-- Pestaña: Generador de Códigos -->
+<div class="container">
+
+<!-- Generador de códigos -->
 <div class="card">
 <h2>Generador de Códigos de Barras</h2>
 <input type="text" id="newName" placeholder="Nombre del mueble">
-<input type="text" id="newColor" placeholder="Tela/Color">
+<input type="text" id="newColor" placeholder="Tela / Color">
 <button onclick="generateProduct()">Generar código y agregar al inventario</button>
-
-<div class="barcode">
-<svg id="barcodeSvg"></svg>
-</div>
 </div>
 
-<!-- Pestaña: Escáner -->
+<!-- Escáner -->
 <div class="card">
 <h2>Escanear Código</h2>
 <div id="reader" style="width:100%; max-width:400px; margin:auto;"></div>
 </div>
 
-<!-- Pestaña: Inventario -->
+<!-- Inventario -->
 <div class="card">
 <h2>Inventario</h2>
-<label>Filtrar por mes:</label>
+<div class="filter">
 <input type="month" id="filterMonth" onchange="updateInventoryList()">
-<ul id="inventory"></ul>
 <button onclick="downloadCSV()">Descargar CSV</button>
+</div>
+<div class="inventory-list" id="inventory"></div>
 </div>
 
 <script>
 let productos = {}; // Diccionario de productos
 let inventory = []; // Inventario actual
 
-// Generador de producto con código único
+// Generar producto con código único
 function generateProduct(){
-    const name = document.getElementById('newName').value;
-    const color = document.getElementById('newColor').value;
+    const name = document.getElementById('newName').value.trim();
+    const color = document.getElementById('newColor').value.trim();
     if(!name || !color){ alert("Ingresa nombre y color"); return; }
-    
-    const code = "MUEB-" + Date.now(); // código único
+
+    const code = "MUEB-" + Date.now(); // Código único
     productos[code] = {nombre:name, color:color};
 
-    // Mostrar código de barras
-    JsBarcode("#barcodeSvg", code, {format:"CODE128", displayValue:true, fontSize:16});
-    
-    // Agregar al inventario con fecha actual
-    inventory.push({barcode:code, nombre:name, color:color, date:new Date()});
+    // Agregar al inventario
+    const item = {barcode:code, nombre:name, color:color, date:new Date()};
+    inventory.push(item);
 
-    // Limpiar inputs
     document.getElementById('newName').value="";
     document.getElementById('newColor').value="";
 
     updateInventoryList();
 }
 
+// Actualizar lista de inventario
+function updateInventoryList(){
+    const list = document.getElementById('inventory');
+    list.innerHTML="";
+    const filter = document.getElementById('filterMonth').value;
+
+    inventory.forEach(item=>{
+        const itemMonth = item.date.toISOString().slice(0,7); // YYYY-MM
+        if(!filter || filter===itemMonth){
+            const card = document.createElement('div');
+            card.className="product-card";
+            card.innerHTML = `
+                <strong>${item.nombre}</strong><br>
+                Color: ${item.color}<br>
+                Código: ${item.barcode}<br>
+                Fecha: ${item.date.toLocaleDateString()}<br>
+                <svg id="svg-${item.barcode}"></svg>
+            `;
+            list.appendChild(card);
+            JsBarcode(`#svg-${item.barcode}`, item.barcode, {format:"CODE128", displayValue:true, fontSize:16});
+        }
+    });
+}
+
 // Escáner de códigos
 function onScanSuccess(decodedText){
-    document.getElementById('barcodeInput')?.value = decodedText;
     if(productos[decodedText]){
         const prod = productos[decodedText];
         alert(`Producto: ${prod.nombre}\nColor: ${prod.color}`);
@@ -91,22 +114,6 @@ function onScanSuccess(decodedText){
 
 let scanner = new Html5QrcodeScanner("reader", { fps:10, qrbox:250 });
 scanner.render(onScanSuccess);
-
-// Actualizar lista de inventario
-function updateInventoryList(){
-    const list = document.getElementById('inventory');
-    list.innerHTML="";
-    const filter = document.getElementById('filterMonth').value;
-    
-    inventory.forEach(item=>{
-        let itemMonth = item.date.toISOString().slice(0,7); // YYYY-MM
-        if(!filter || itemMonth===filter){
-            const li = document.createElement('li');
-            li.textContent=`${item.nombre} - Color: ${item.color} - Código: ${item.barcode} - Fecha: ${item.date.toLocaleDateString()}`;
-            list.appendChild(li);
-        }
-    });
-}
 
 // Descargar CSV
 function downloadCSV(){
