@@ -3,34 +3,63 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Inventario de Muebles — KLL</title>
+<title>Inventario de Muebles — KLL + SKU</title>
 
 <!-- Librerías -->
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 
 <style>
-  body { font-family: Arial, sans-serif; margin:0; background:#f3f4f6; color:#111827; }
-  header { background:#2563eb; color:#fff; padding:16px; text-align:center; font-weight:700; }
-  .container { max-width:900px; margin:20px auto; padding:10px; }
-  .tabs { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
-  .tab-btn { flex:1; min-width:150px; padding:10px; cursor:pointer; border:1px solid #e5e7eb; background:#fff; border-radius:8px; font-weight:700; }
-  .tab-btn.active { background:#2563eb; color:#fff; border-color:#2563eb; }
-  .card { background:#fff; border-radius:10px; padding:15px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
-  .hidden { display:none; }
-  input,button,select { width:100%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #e5e7eb; }
-  input:focus,select:focus { outline: none; box-shadow:0 0 0 3px rgba(37,99,235,.15); border-color:#2563eb; }
-  button { background:#2563eb; color:#fff; border:none; cursor:pointer; font-weight:700; }
-  button:hover { background:#1d4ed8; }
-  /* etiqueta preview */
-  .label-preview { border:1px solid #000; padding:10px; width:300px; background:#fff; border-radius:6px; }
-  .model { font-size:20px; font-weight:700; }
-  .fabric { font-size:16px; margin-top:4px; }
-  .date { font-size:14px; margin-top:4px; }
+  :root{
+    --primary:#2563eb; --primary-600:#1d4ed8;
+    --bg:#f3f4f6; --card:#fff; --text:#111827; --muted:#6b7280;
+    --ring:rgba(37,99,235,.15)
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text)}
+  header{background:var(--primary); color:#fff; padding:16px; text-align:center; font-weight:700}
+  .container{max-width:1000px; margin:20px auto; padding:12px}
+  .tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px}
+  .tab-btn{flex:1; min-width:150px; padding:10px; border:1px solid #e5e7eb; background:#fff; border-radius:10px; font-weight:700; cursor:pointer}
+  .tab-btn.active{background:var(--primary); color:#fff; border-color:var(--primary)}
+  .card{background:var(--card); border-radius:12px; padding:16px; box-shadow:0 6px 18px rgba(0,0,0,.06)}
+  .hidden{display:none}
+  h2{margin:0 0 10px 0; font-size:1.1rem}
+  .row{display:flex; gap:10px; flex-wrap:wrap}
+  input, select, button{width:100%; padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff}
+  input:focus, select:focus{outline:none; box-shadow:0 0 0 4px var(--ring); border-color:var(--primary)}
+  button{background:var(--primary); color:#fff; border:none; font-weight:700; cursor:pointer}
+  button:hover{background:var(--primary-600)}
+  .muted{color:var(--muted); font-size:.9rem}
+  ul{padding-left:18px}
+  /* Etiqueta preview */
+  .label-preview{border:1px solid #000; border-radius:6px; background:#fff; padding:12px; width:320px}
+  .label-preview .model{font-size:20px; font-weight:700}
+  .label-preview .fabric{font-size:16px; margin-top:2px}
+  .label-preview .sku{font-size:14px; margin-top:2px}
+  .label-preview .date{font-size:14px; margin-top:2px}
+  .label-preview svg{margin-top:8px}
+  /* Inventario totales */
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:10px}
+  .item{border:1px solid #e5e7eb; border-radius:10px; padding:12px}
+  .top{display:flex; justify-content:space-between; gap:8px}
+  .name{font-weight:700}
+  .btn-sm{padding:8px 10px; border-radius:8px}
+  .btn-danger{background:#ef4444}
+  .btn-danger:hover{background:#dc2626}
+  .btn-secondary{background:#6b7280}
+  .btn-secondary:hover{background:#4b5563}
+  .segmented{display:flex; gap:6px; margin-bottom:8px}
+  .segmented button{flex:1; background:#fff; color:#111827; border:1px solid #e5e7eb}
+  .segmented button.active{background:#111827; color:#fff; border-color:#111827}
+  .group{margin:10px 0}
+  .group h3{margin:0 0 6px 0; font-size:1rem}
+  .mov{padding:6px 8px; border:1px solid #e5e7eb; border-radius:8px; margin:4px 0; background:#fff}
+  .kv{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:.9rem}
 </style>
 </head>
 <body>
-<header>Inventario de Muebles — KLL</header>
+<header>Inventario de Muebles — KLL + SKU</header>
 <div class="container">
 
   <!-- Tabs -->
@@ -39,85 +68,144 @@
     <button class="tab-btn" data-tab="escanear">Escanear</button>
     <button class="tab-btn" data-tab="inventario">Inventario</button>
     <button class="tab-btn" data-tab="etiquetas">Etiquetas</button>
+    <button class="tab-btn" data-tab="config">Configuración y Herramientas</button>
   </div>
 
   <!-- Registrar -->
   <section id="registrar" class="card">
-    <h2>Registrar producto</h2>
-    <input id="newName" placeholder="Modelo (ej. Sillón Roma)">
-    <input id="newFabric" placeholder="Tela (ej. Lino Beige)">
-    <button id="btnGenerate">Generar código KLL y guardar</button>
+    <h2>Registrar producto (SKU + genera KLL una sola vez)</h2>
+    <div class="row">
+      <input id="newName" placeholder="Modelo (ej. Sillón Roma)">
+      <input id="newFabric" placeholder="Tela (ej. Lino Beige)">
+      <input id="newSKU" placeholder="SKU (ej. SR-LB)">
+    </div>
+    <div class="row">
+      <button id="btnGenerate">Guardar / Sumar (usa el mismo KLL si ya existe)</button>
+    </div>
+    <div class="muted">Si el SKU+Modelo+Tela ya existe, no crea otro KLL: solo suma cantidad.</div>
   </section>
 
   <!-- Escanear -->
   <section id="escanear" class="card hidden">
-    <h2>Escanear con cámara (QR + Code128)</h2>
-    <div id="reader" style="width:100%; max-width:420px; margin: 10px auto;"></div>
-    <input id="scanCode" placeholder="Código detectado" readonly>
-    <input id="scanName" placeholder="Modelo" readonly>
-    <input id="scanFabric" placeholder="Tela" readonly>
-    <input id="scanQty" placeholder="Cantidad total" readonly>
-    <div style="color:#6b7280; font-size:.9rem; margin-top:4px">
-      Si el código existe, la cantidad se incrementa automáticamente.
+    <h2>Escanear (QR + Code128)</h2>
+    <div class="row">
+      <select id="cameraSelect" title="Selecciona cámara"></select>
+      <button id="btnToggleTorch" class="btn-secondary">Linterna: Off</button>
     </div>
+    <div id="reader" style="width:100%; max-width:420px; margin:8px auto;"></div>
+    <div class="row">
+      <input id="scanCode" placeholder="Código detectado (KLL o QR)" readonly>
+      <input id="scanName" placeholder="Modelo" readonly>
+      <input id="scanFabric" placeholder="Tela" readonly>
+      <input id="scanSKU" placeholder="SKU" readonly>
+      <input id="scanQty" placeholder="Cantidad total" readonly>
+    </div>
+    <div class="row">
+      <button id="btnPlus1" class="btn-sm">+1</button>
+      <input id="plusN" type="number" min="1" value="5" style="max-width:140px">
+      <button id="btnPlusN" class="btn-sm">+N</button>
+    </div>
+    <div class="muted">Tras detectar, se pausa 1.2s para evitar dobles lecturas.</div>
   </section>
 
   <!-- Inventario -->
   <section id="inventario" class="card hidden">
     <h2>Inventario</h2>
-    <input id="searchInput" placeholder="Buscar por modelo, tela o código" oninput="renderInventory()">
-    <ul id="inventory"></ul>
-    <button id="btnCSV">Exportar CSV</button>
-    <input type="month" id="filterMonth" onchange="renderInventory()" style="margin-top:6px">
+    <div class="row">
+      <input id="searchInput" placeholder="Buscar por modelo, tela, SKU o código" oninput="renderInventory()">
+      <input id="filterMonth" type="month" onchange="renderInventory()">
+    </div>
+
+    <div class="segmented">
+      <button id="viewTotals" class="active">Totales</button>
+      <button id="viewMovs">Movimientos (por día)</button>
+    </div>
+
+    <div id="totalsView">
+      <div id="inventoryGrid" class="grid"></div>
+    </div>
+
+    <div id="movsView" class="hidden">
+      <div id="movsWrap"></div>
+    </div>
   </section>
 
   <!-- Etiquetas -->
   <section id="etiquetas" class="card hidden">
     <h2>Etiquetas</h2>
-    <select id="labelSelect" onchange="showPreview()"></select>
+    <div class="row">
+      <select id="labelSelect" onchange="showPreview()"></select>
+      <button id="btnPrint" class="btn-sm">Imprimir etiqueta</button>
+    </div>
     <div id="previewWrap" style="margin-top:8px"></div>
-    <button id="btnPrint">Imprimir etiqueta</button>
-    <div style="color:#6b7280; font-size:.9rem; margin-top:4px">
-      Formato: Modelo (grande) · Tela · Fecha · Código de barras (CODE128)
+    <div class="muted">Formato: Modelo (grande) · Tela · <b>SKU</b> · Fecha · Código de barras (KLL)</div>
+  </section>
+
+  <!-- Configuración y Herramientas -->
+  <section id="config" class="card hidden">
+    <h2>Configuración y Herramientas</h2>
+
+    <h3>Preferencias de escaneo</h3>
+    <label><input type="checkbox" id="prefBeep"> Sonido (beep al detectar)</label><br>
+    <label><input type="checkbox" id="prefVibrate"> Vibración (si el dispositivo lo soporta)</label>
+
+    <hr style="margin:14px 0">
+
+    <h3>Importar / Exportar</h3>
+    <div class="row">
+      <input type="file" id="csvFile" accept=".csv">
+      <button id="btnImport" class="btn-secondary">Importar CSV (requiere columna “Código”)</button>
+    </div>
+    <div class="row">
+      <button id="btnExportTotals">Exportar CSV (Totales)</button>
+      <button id="btnExportMovs" class="btn-secondary">Exportar CSV (Movimientos)</button>
+    </div>
+
+    <div class="muted" style="margin-top:8px">
+      Formato CSV para importar (encabezados): <span class="kv">Modelo,Tela,SKU,Cantidad,Código,Fecha</span>.
+      Si falta <b>Código</b>, la fila se omite (se respeta tu política de códigos).
     </div>
   </section>
 
 </div>
 
 <script>
-/* ================= Estado & Datos ================= */
-let inventory = []; // {code, nombre, tela, cantidad, dateISO}
-let counter = 1;    // para KLL-####
+/* =================== Estado & Persistencia =================== */
+let items = [];     // [{code, sku, nombre, tela, cantidad, createdISO}]
+let moves = [];     // [{dateISO, code, sku, nombre, tela, delta, type}] // type: 'register'|'scan'|'edit'|'import'
+let kllCounter = 1; // para KLL-####
+let prefs = { beep:true, vibrate:true };
 
-(function load() {
-  try {
-    const inv = localStorage.getItem('inventory');
-    const c   = localStorage.getItem('kllCounter');
-    inventory = inv ? JSON.parse(inv) : [];
-    counter   = c ? parseInt(c) : 1;
-  } catch(e) {
-    inventory = []; counter = 1;
+(function loadAll(){
+  try{
+    items = JSON.parse(localStorage.getItem('items')||'[]');
+    moves = JSON.parse(localStorage.getItem('moves')||'[]');
+    kllCounter = parseInt(localStorage.getItem('kllCounter')||'1');
+    const p = JSON.parse(localStorage.getItem('prefs')||'{}');
+    prefs = { beep: p.beep!==undefined?p.beep:true, vibrate: p.vibrate!==undefined?p.vibrate:true };
+  }catch(e){
+    items=[]; moves=[]; kllCounter=1; prefs={beep:true, vibrate:true};
   }
+  // set UI prefs
+  document.getElementById('prefBeep').checked = !!prefs.beep;
+  document.getElementById('prefVibrate').checked = !!prefs.vibrate;
+
   renderInventory();
   refreshLabelSelect();
 })();
 
 function saveAll(){
-  localStorage.setItem('inventory', JSON.stringify(inventory));
-  localStorage.setItem('kllCounter', String(counter));
+  localStorage.setItem('items', JSON.stringify(items));
+  localStorage.setItem('moves', JSON.stringify(moves));
+  localStorage.setItem('kllCounter', String(kllCounter));
+  localStorage.setItem('prefs', JSON.stringify(prefs));
 }
 
-/* ================= Tabs ================= */
+/* =================== Tabs =================== */
 const tabBtns = document.querySelectorAll('.tab-btn');
-const sections = {
-  registrar: document.getElementById('registrar'),
-  escanear: document.getElementById('escanear'),
-  inventario: document.getElementById('inventario'),
-  etiquetas: document.getElementById('etiquetas')
-};
-
-let scanner = null; // html5-qrcode scanner instance
-
+const sections = ['registrar','escanear','inventario','etiquetas','config'].reduce((acc,id)=>{
+  acc[id]=document.getElementById(id); return acc;
+}, {});
 tabBtns.forEach(b=>{
   b.addEventListener('click', ()=>{
     tabBtns.forEach(x=>x.classList.remove('active'));
@@ -125,139 +213,344 @@ tabBtns.forEach(b=>{
     Object.values(sections).forEach(s=>s.classList.add('hidden'));
     const id = b.dataset.tab;
     sections[id].classList.remove('hidden');
-
-    // iniciar/detener escáner según la pestaña
-    if (id === 'escanear') startScanner();
+    if (id==='escanear') initCameras().then(()=>startScanner()).catch(()=>{});
     else stopScanner();
+    if (id==='etiquetas') refreshLabelSelect();
   });
 });
 
-/* ================= Registrar ================= */
+/* =================== Registrar (SKU + KLL único) =================== */
 document.getElementById('btnGenerate').addEventListener('click', ()=>{
   const nombre = document.getElementById('newName').value.trim();
   const tela   = document.getElementById('newFabric').value.trim();
-  if(!nombre || !tela){ alert("Completa modelo y tela"); return; }
+  const sku    = document.getElementById('newSKU').value.trim();
+  if(!nombre || !tela || !sku){ alert("Completa Modelo, Tela y SKU."); return; }
 
-  const code = "KLL-" + String(counter).padStart(4,"0");
-  counter++;
+  // Buscar si ya existe este SKU+Modelo+Tela
+  const existing = items.find(i=>i.sku.toLowerCase()===sku.toLowerCase() &&
+                                 i.nombre.toLowerCase()===nombre.toLowerCase() &&
+                                 i.tela.toLowerCase()===tela.toLowerCase());
+  const now = new Date();
+  const nowISO = now.toISOString();
 
-  const nowISO = new Date().toISOString();
-  // si ya existe por código, sumar cantidad; (normalmente no debería repetirse)
-  const existing = inventory.find(i=>i.code===code);
-  if (existing) existing.cantidad += 1;
-  else inventory.push({ code, nombre, tela, cantidad:1, dateISO: nowISO });
-
+  if(existing){
+    existing.cantidad += 1;
+    moves.push({dateISO:nowISO, code:existing.code, sku:existing.sku, nombre:existing.nombre, tela:existing.tela, delta:+1, type:'register'});
+    alert(`Se sumó +1 a ${existing.nombre} (${existing.tela}) · SKU ${existing.sku}\nCódigo: ${existing.code}`);
+  }else{
+    const code = "KLL-" + String(kllCounter).padStart(4,"0");
+    kllCounter++;
+    items.push({code, sku, nombre, tela, cantidad:1, createdISO:nowISO});
+    moves.push({dateISO:nowISO, code, sku, nombre, tela, delta:+1, type:'register'});
+    alert(`Nuevo producto creado con código ${code}`);
+  }
   saveAll();
-  renderInventory();
-  refreshLabelSelect();
-
+  // limpiar
   document.getElementById('newName').value = "";
   document.getElementById('newFabric').value = "";
-  alert("Producto registrado con código " + code);
+  document.getElementById('newSKU').value = "";
+  renderInventory();
+  refreshLabelSelect();
 });
 
-/* ================= Escanear (QR + CODE128) ================= */
-function startScanner(){
-  if (scanner) return; // ya está
+/* =================== Escanear (Html5Qrcode: QR + Code128) =================== */
+let h5 = null;
+let currentCamId = null;
+let torchOn = false;
+let lastText = "";
+let resumeTimer = null;
+
+async function initCameras(){
+  const select = document.getElementById('cameraSelect');
+  if(select.options.length>0) return; // ya poblado
   try{
-    // formatos a soportar
-    const formats = [
-      Html5QrcodeSupportedFormats.QR_CODE,
-      Html5QrcodeSupportedFormats.CODE_128,
-      Html5QrcodeSupportedFormats.CODE_39,
-      Html5QrcodeSupportedFormats.EAN_13
-    ];
-    scanner = new Html5QrcodeScanner("reader", { fps:10, qrbox:250, formatsToSupport: formats });
-    scanner.render(onScanSuccess, onScanFailure);
+    const cams = await Html5Qrcode.getCameras();
+    if(!cams || cams.length===0){ select.innerHTML=""; return; }
+    // popular
+    cams.forEach(c=>{
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.label || c.id;
+      select.appendChild(opt);
+    });
+    // preferir trasera si existe
+    const rear = cams.find(c=>/back|rear|trase|environment/gi.test(c.label||""));
+    currentCamId = (rear ? rear.id : cams[0].id);
+    select.value = currentCamId;
+    select.onchange = ()=> switchCamera(select.value);
+  }catch(e){ console.error(e); }
+}
+
+async function startScanner(){
+  if(h5) return;
+  const readerDiv = document.getElementById('reader');
+  h5 = new Html5Qrcode(readerDiv.id);
+  const formats = [
+    Html5QrcodeSupportedFormats.QR_CODE,
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.EAN_13
+  ];
+  const camId = currentCamId || (await Html5Qrcode.getCameras()).[0]?.id;
+  currentCamId = camId;
+
+  const config = { fps:10, qrbox:250, formatsToSupport: formats };
+  try{
+    await h5.start({deviceId:{exact:camId}}, config, onScanSuccess, onScanFailure);
   }catch(e){
     console.error(e);
-    alert("No pude iniciar la cámara. Revisa permisos o prueba con Chrome.");
+    alert("No pude iniciar la cámara. Revisa permisos o intenta con otro navegador.");
   }
 }
 
 function stopScanner(){
-  // Html5QrcodeScanner no expone stop fácil; al ocultar la sección dejamos de mostrar el video.
-  // Este patrón evita recrear múltiples instancias.
+  if(!h5) return;
+  try{
+    h5.stop().then(()=>h5.clear()).catch(()=>{});
+  }catch(e){}
+  h5 = null;
+  torchOn = false;
+  document.getElementById('btnToggleTorch').textContent = "Linterna: Off";
 }
 
-function onScanFailure(err){
-  // Silencioso para no saturar la consola
+async function switchCamera(camId){
+  if(!h5) return;
+  try{
+    await h5.stop(); await h5.clear();
+  }catch(e){}
+  h5 = null;
+  currentCamId = camId;
+  startScanner();
 }
 
-function onScanSuccess(decodedText){
-  document.getElementById('scanCode').value = decodedText;
+document.getElementById('btnToggleTorch').addEventListener('click', async ()=>{
+  if(!h5 || !h5.getState || h5.getState()!=="SCANNING"){ alert("Inicia el escáner primero"); return; }
+  // Intentar torch (no todos los navegadores/disp. lo soportan)
+  try{
+    torchOn = !torchOn;
+    await h5.applyVideoConstraints({ advanced:[{ torch: torchOn }] });
+    document.getElementById('btnToggleTorch').textContent = torchOn? "Linterna: On" : "Linterna: Off";
+  }catch(e){
+    console.warn("Torch no soportado", e);
+    alert("La linterna no es compatible con esta cámara/navegador.");
+  }
+});
 
-  // Buscar por code exacto
-  const item = inventory.find(i=>i.code === decodedText);
+function onScanFailure(){ /* silencio para no llenar consola */ }
 
-  if (item){
-    // suma cantidad
+function onScanSuccess(text){
+  if(text === lastText) return; // evita rapid-fire duplicado
+  lastText = text;
+  // pausa breve y reanuda
+  if(h5 && h5.pause) h5.pause(true);
+  clearTimeout(resumeTimer);
+  resumeTimer = setTimeout(()=>{ if(h5 && h5.resume) h5.resume(); lastText=""; }, 1200);
+
+  document.getElementById('scanCode').value = text;
+
+  const item = items.find(i=>i.code===text || i.sku.toLowerCase()===text.toLowerCase());
+  if(item){
+    // sumar 1 por defecto
     item.cantidad += 1;
-    document.getElementById('scanName').value   = item.nombre;
+    const nowISO = new Date().toISOString();
+    moves.push({dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+1, type:'scan'});
+
+    document.getElementById('scanName').value = item.nombre;
     document.getElementById('scanFabric').value = item.tela;
-    document.getElementById('scanQty').value    = item.cantidad;
+    document.getElementById('scanSKU').value = item.sku;
+    document.getElementById('scanQty').value = item.cantidad;
+
+    if(prefs.beep) beep();
+    if(prefs.vibrate && navigator.vibrate) navigator.vibrate(80);
+
     saveAll();
     renderInventory();
-  } else {
-    // si escaneaste un QR con texto o un código que no existe
-    document.getElementById('scanName').value   = "No registrado";
+  }else{
+    document.getElementById('scanName').value = "No registrado";
     document.getElementById('scanFabric').value = "";
-    document.getElementById('scanQty').value    = "";
+    document.getElementById('scanSKU').value = "";
+    document.getElementById('scanQty').value = "";
   }
 }
 
-/* ================= Inventario ================= */
+document.getElementById('btnPlus1').addEventListener('click', ()=>{
+  const code = document.getElementById('scanCode').value.trim();
+  if(!code) return;
+  const item = items.find(i=>i.code===code || i.sku.toLowerCase()===code.toLowerCase());
+  if(!item) return;
+  item.cantidad += 1;
+  const nowISO = new Date().toISOString();
+  moves.push({dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+1, type:'scan'});
+  if(prefs.beep) beep();
+  if(prefs.vibrate && navigator.vibrate) navigator.vibrate(80);
+  saveAll(); renderInventory();
+  document.getElementById('scanQty').value = item.cantidad;
+});
+
+document.getElementById('btnPlusN').addEventListener('click', ()=>{
+  const n = parseInt(document.getElementById('plusN').value||"0");
+  const code = document.getElementById('scanCode').value.trim();
+  if(!n || !code) return;
+  const item = items.find(i=>i.code===code || i.sku.toLowerCase()===code.toLowerCase());
+  if(!item) return;
+  item.cantidad += n;
+  const nowISO = new Date().toISOString();
+  moves.push({dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+n, type:'scan'});
+  if(prefs.beep) beep();
+  if(prefs.vibrate && navigator.vibrate) navigator.vibrate([50,30,50]);
+  saveAll(); renderInventory();
+  document.getElementById('scanQty').value = item.cantidad;
+});
+
+/* =================== Beep =================== */
+function beep(){
+  try{
+    const ac = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ac.createOscillator(); const g = ac.createGain();
+    o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ac.destination);
+    g.gain.setValueAtTime(0.0001, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.3, ac.currentTime+0.01);
+    o.start();
+    setTimeout(()=>{ g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+0.02); o.stop(ac.currentTime+0.03); }, 120);
+  }catch(e){}
+}
+
+/* =================== Inventario: Totales & Movimientos =================== */
+const viewTotalsBtn = document.getElementById('viewTotals');
+const viewMovsBtn   = document.getElementById('viewMovs');
+viewTotalsBtn.addEventListener('click', ()=>{
+  viewTotalsBtn.classList.add('active'); viewMovsBtn.classList.remove('active');
+  document.getElementById('totalsView').classList.remove('hidden');
+  document.getElementById('movsView').classList.add('hidden');
+});
+viewMovsBtn.addEventListener('click', ()=>{
+  viewMovsBtn.classList.add('active'); viewTotalsBtn.classList.remove('active');
+  document.getElementById('movsView').classList.remove('hidden');
+  document.getElementById('totalsView').classList.add('hidden');
+  renderMovements();
+});
+
 function renderInventory(){
-  const list = document.getElementById('inventory');
-  if(!list) return;
+  const grid = document.getElementById('inventoryGrid');
+  if(!grid) return;
+  grid.innerHTML = "";
   const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
   const m = (document.getElementById('filterMonth')?.value || ""); // YYYY-MM
-  list.innerHTML = "";
 
-  const data = inventory.filter(i=>{
-    const okQ = !q || i.nombre.toLowerCase().includes(q) || i.tela.toLowerCase().includes(q) || i.code.toLowerCase().includes(q);
-    const okM = !m || (i.dateISO||"").slice(0,7) === m;
-    return okQ && okM;
-  }).sort((a,b)=>(b.dateISO||"").localeCompare(a.dateISO||""));
+  const data = items
+    .filter(i=>{
+      const okQ = !q || i.nombre.toLowerCase().includes(q)||i.tela.toLowerCase().includes(q)||
+                        i.sku.toLowerCase().includes(q)||i.code.toLowerCase().includes(q);
+      const okM = !m || (i.createdISO||"").slice(0,7)===m;
+      return okQ && okM;
+    })
+    .sort((a,b)=>(b.createdISO||"").localeCompare(a.createdISO||""));
 
   data.forEach(i=>{
-    const li = document.createElement("li");
-    const dateTxt = i.dateISO ? new Date(i.dateISO).toLocaleDateString() : "";
-    li.innerHTML = `
-      ${escapeHtml(i.nombre)} - Tela: ${escapeHtml(i.tela)} - Código: ${escapeHtml(i.code)} - Cantidad: ${i.cantidad} - Fecha: ${escapeHtml(dateTxt)}
+    const dateTxt = i.createdISO ? new Date(i.createdISO).toLocaleDateString() : "";
+    const card = document.createElement('div');
+    card.className="item";
+    card.innerHTML = `
+      <div class="top">
+        <div>
+          <div class="name">${escapeHtml(i.nombre)}</div>
+          <div class="muted">Tela: ${escapeHtml(i.tela)}</div>
+          <div class="muted">SKU: ${escapeHtml(i.sku)}</div>
+        </div>
+        <div class="muted">Cant: ${i.cantidad}</div>
+      </div>
+      <div class="muted">Código: ${escapeHtml(i.code)} · Alta: ${escapeHtml(dateTxt)}</div>
       <div><svg class="bc"></svg></div>
+      <div class="row">
+        <button class="btn-sm btn-secondary" data-edit="${i.code}">Editar</button>
+        <button class="btn-sm btn-danger" data-del="${i.code}">Eliminar</button>
+      </div>
     `;
-    list.appendChild(li);
-    try {
-      JsBarcode(li.querySelector('.bc'), i.code, {format:"CODE128", height:40, displayValue:true});
-    } catch(e) {}
+    grid.appendChild(card);
+    try{ JsBarcode(card.querySelector('.bc'), i.code, {format:"CODE128", height:40, displayValue:true}); }catch(e){}
+  });
+
+  // handlers editar/eliminar
+  grid.querySelectorAll('[data-edit]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const code = btn.getAttribute('data-edit');
+      const it = items.find(x=>x.code===code);
+      if(!it) return;
+      const nombre = prompt("Modelo:", it.nombre); if(nombre===null) return;
+      const tela   = prompt("Tela:", it.tela); if(tela===null) return;
+      const sku    = prompt("SKU:", it.sku); if(sku===null) return;
+      const cant   = parseInt(prompt("Cantidad:", String(it.cantidad))||"NaN");
+      if(Number.isNaN(cant) || cant<0){ alert("Cantidad inválida"); return; }
+      const before = it.cantidad;
+      it.nombre=nombre.trim(); it.tela=tela.trim(); it.sku=sku.trim(); it.cantidad=cant;
+      moves.push({dateISO:new Date().toISOString(), code:it.code, sku:it.sku, nombre:it.nombre, tela:it.tela, delta:(cant-before), type:'edit'});
+      saveAll(); renderInventory(); refreshLabelSelect();
+    });
+  });
+  grid.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const code = btn.getAttribute('data-del');
+      const it = items.find(x=>x.code===code);
+      if(!it) return;
+      if(!confirm(`¿Eliminar ${it.nombre} (${it.tela}) · ${it.sku}?`)) return;
+      const idx = items.findIndex(x=>x.code===code);
+      items.splice(idx,1);
+      moves.push({dateISO:new Date().toISOString(), code:it.code, sku:it.sku, nombre:it.nombre, tela:it.tela, delta:(-it.cantidad), type:'edit'});
+      saveAll(); renderInventory(); refreshLabelSelect();
+    });
   });
 }
 
-document.getElementById('btnCSV').addEventListener('click', ()=>{
-  if(inventory.length===0){ alert("No hay datos"); return; }
-  const headers = ["Modelo","Tela","Cantidad","Código","Fecha"];
-  const rows = inventory.map(i=>[
-    i.nombre, i.tela, i.cantidad, i.code,
-    i.dateISO ? new Date(i.dateISO).toLocaleDateString() : ""
-  ]);
-  const csv = headers.join(",")+"\n"+rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(",")).join("\n");
-  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download="inventario_kll.csv"; a.click();
-  URL.revokeObjectURL(url);
-});
+function renderMovements(){
+  const wrap = document.getElementById('movsWrap');
+  wrap.innerHTML = "";
+  const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
+  const m = (document.getElementById('filterMonth')?.value || "");
 
-/* ================= Etiquetas ================= */
+  // filtrar y agrupar por día
+  const map = new Map(); // dateKey -> array
+  moves
+    .filter(r=>{
+      const okM = !m || (r.dateISO||"").slice(0,7)===m;
+      const okQ = !q || r.nombre.toLowerCase().includes(q)||r.tela.toLowerCase().includes(q)||
+                        r.sku.toLowerCase().includes(q)||r.code.toLowerCase().includes(q);
+      return okM && okQ;
+    })
+    .sort((a,b)=>(b.dateISO||"").localeCompare(a.dateISO||""))
+    .forEach(r=>{
+      const day = (r.dateISO||"").slice(0,10);
+      if(!map.has(day)) map.set(day, []);
+      map.get(day).push(r);
+    });
+
+  if(map.size===0){ wrap.innerHTML = '<div class="muted">Sin movimientos para el filtro actual.</div>'; return; }
+
+  for(const [day, rows] of map){
+    const g = document.createElement('div'); g.className="group";
+    g.innerHTML = `<h3>📅 ${day.split('-').reverse().join('/')}</h3>`;
+    rows.forEach(r=>{
+      const sgn = r.delta>0? '+' : '';
+      const div = document.createElement('div'); div.className="mov";
+      div.innerHTML = `
+        <div><b>${escapeHtml(r.nombre)}</b> · ${escapeHtml(r.tela)} · SKU ${escapeHtml(r.sku)}</div>
+        <div class="muted">Código: ${escapeHtml(r.code)} · ${new Date(r.dateISO).toLocaleTimeString()}</div>
+        <div class="kv">Δ ${sgn}${r.delta}  ·  ${r.type}</div>
+      `;
+      g.appendChild(div);
+    });
+    wrap.appendChild(g);
+  }
+}
+
+/* =================== Etiquetas =================== */
 function refreshLabelSelect(){
   const sel = document.getElementById('labelSelect');
   if(!sel) return;
   const prev = sel.value;
   sel.innerHTML = "";
-  inventory.forEach(i=>{
-    const opt = document.createElement("option");
+  items.forEach(i=>{
+    const opt = document.createElement('option');
     opt.value = i.code;
-    opt.textContent = `${i.nombre} · ${i.tela} · ${i.code}`;
+    opt.textContent = `${i.nombre} · ${i.tela} · SKU ${i.sku} · ${i.code}`;
     sel.appendChild(opt);
   });
   if(prev && [...sel.options].some(o=>o.value===prev)) sel.value = prev;
@@ -269,50 +562,49 @@ function showPreview(){
   const wrap = document.getElementById('previewWrap');
   wrap.innerHTML = "";
   if(!sel || !sel.value) return;
-  const item = inventory.find(i=>i.code===sel.value);
-  if(!item) return;
-
-  const dateTxt = item.dateISO ? new Date(item.dateISO).toLocaleDateString() : "";
-  const div = document.createElement("div");
-  div.className = "label-preview";
+  const it = items.find(i=>i.code===sel.value);
+  if(!it) return;
+  const dateTxt = it.createdISO ? new Date(it.createdISO).toLocaleDateString() : "";
+  const div = document.createElement('div');
+  div.className="label-preview";
   div.innerHTML = `
-    <div class="model">${escapeHtml(item.nombre)}</div>
-    <div class="fabric">${escapeHtml(item.tela)}</div>
+    <div class="model">${escapeHtml(it.nombre)}</div>
+    <div class="fabric">Tela: ${escapeHtml(it.tela)}</div>
+    <div class="sku">SKU: ${escapeHtml(it.sku)}</div>
     <div class="date">${escapeHtml(dateTxt)}</div>
     <svg id="barcodePrev"></svg>
   `;
   wrap.appendChild(div);
-  try {
-    JsBarcode("#barcodePrev", item.code, {format:"CODE128", width:2, height:60, displayValue:true});
-  } catch(e) {}
+  try{ JsBarcode("#barcodePrev", it.code, {format:"CODE128", width:2, height:60, displayValue:true}); }catch(e){}
 }
 
 document.getElementById('btnPrint').addEventListener('click', ()=>{
   const sel = document.getElementById('labelSelect');
   if(!sel || !sel.value){ alert("Selecciona un producto"); return; }
-  const item = inventory.find(i=>i.code===sel.value);
-  if(!item){ alert("Producto no encontrado"); return; }
-
+  const it = items.find(i=>i.code===sel.value);
+  if(!it){ alert("Producto no encontrado"); return; }
+  const dateTxt = it.createdISO ? new Date(it.createdISO).toLocaleDateString() : "";
   const w = window.open('', '', 'width=420,height=360');
-  const dateTxt = item.dateISO ? new Date(item.dateISO).toLocaleDateString() : "";
   const html = `
-    <html><head><title>Etiqueta ${escapeHtml(item.code)}</title>
+    <html><head><title>Etiqueta ${escapeHtml(it.code)}</title>
     <style>
       body{font-family:Arial, sans-serif; margin:0; padding:16px; text-align:center}
       .model{font-size:20px; font-weight:700}
-      .fabric{font-size:16px; margin-top:4px}
-      .date{font-size:14px; margin-top:4px}
+      .fabric{font-size:16px; margin-top:2px}
+      .sku{font-size:14px; margin-top:2px}
+      .date{font-size:14px; margin-top:2px}
       svg{margin-top:10px}
     </style>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
     </head><body>
-      <div class="model">${escapeHtml(item.nombre)}</div>
-      <div class="fabric">${escapeHtml(item.tela)}</div>
+      <div class="model">${escapeHtml(it.nombre)}</div>
+      <div class="fabric">Tela: ${escapeHtml(it.tela)}</div>
+      <div class="sku">SKU: ${escapeHtml(it.sku)}</div>
       <div class="date">${escapeHtml(dateTxt)}</div>
       <svg id="b"></svg>
       <script>
         try{
-          JsBarcode("#b","${escapeJs(item.code)}",{format:"CODE128",width:2,height:60,displayValue:true});
+          JsBarcode("#b","${escapeJs(it.code)}",{format:"CODE128",width:2,height:60,displayValue:true});
         }catch(e){}
         window.onload=function(){window.print();}
       <\/script>
@@ -323,7 +615,116 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   w.focus();
 });
 
-/* ================= Utils ================= */
+/* =================== Config: Prefs & CSV =================== */
+document.getElementById('prefBeep').addEventListener('change', (e)=>{ prefs.beep = e.target.checked; saveAll(); });
+document.getElementById('prefVibrate').addEventListener('change', (e)=>{ prefs.vibrate = e.target.checked; saveAll(); });
+
+document.getElementById('btnExportTotals').addEventListener('click', ()=>{
+  if(items.length===0){ alert("No hay datos"); return; }
+  const headers = ["Modelo","Tela","SKU","Código","Cantidad","Fecha Alta"];
+  const rows = items.map(i=>[
+    i.nombre, i.tela, i.sku, i.code, i.cantidad,
+    i.createdISO? new Date(i.createdISO).toLocaleDateString() : ""
+  ]);
+  downloadCSV("inventario_totales.csv", headers, rows);
+});
+document.getElementById('btnExportMovs').addEventListener('click', ()=>{
+  if(moves.length===0){ alert("No hay movimientos"); return; }
+  const headers = ["Fecha","Hora","Código","SKU","Modelo","Tela","Delta","Tipo"];
+  const rows = moves.map(m=>{
+    const d = new Date(m.dateISO||Date.now());
+    return [
+      d.toLocaleDateString(), d.toLocaleTimeString(),
+      m.code, m.sku, m.nombre, m.tela, m.delta, m.type
+    ];
+  });
+  downloadCSV("inventario_movimientos.csv", headers, rows);
+});
+
+document.getElementById('btnImport').addEventListener('click', ()=>{
+  const input = document.getElementById('csvFile');
+  if(!input.files || !input.files[0]){ alert("Selecciona un archivo CSV"); return; }
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const text = e.target.result;
+    const rows = parseCSV(text); // array de objetos por encabezado
+    let imported=0, skipped=0;
+    rows.forEach(r=>{
+      const code = (r["Código"]||"").trim();
+      const nombre=(r["Modelo"]||"").trim();
+      const tela  =(r["Tela"]||"").trim();
+      const sku   =(r["SKU"]||"").trim();
+      const cant  = parseInt((r["Cantidad"]||"0").trim()||"0");
+      const fecha = (r["Fecha"]||"").trim();
+
+      if(!code){ skipped++; return; } // se respeta tu política: requiere Código
+      const existing = items.find(i=>i.code===code);
+      const createdISO = fecha? new Date(fecha).toISOString() : new Date().toISOString();
+
+      if(existing){
+        // reemplazar cantidad por la importada (snapshot)
+        const delta = (cant - existing.cantidad);
+        existing.nombre = nombre || existing.nombre;
+        existing.tela   = tela   || existing.tela;
+        existing.sku    = sku    || existing.sku;
+        if(!Number.isNaN(cant)) existing.cantidad = cant;
+        if(!existing.createdISO) existing.createdISO = createdISO;
+        moves.push({dateISO:new Date().toISOString(), code:existing.code, sku:existing.sku, nombre:existing.nombre, tela:existing.tela, delta, type:'import'});
+      }else{
+        items.push({code, sku, nombre, tela, cantidad: (Number.isNaN(cant)?0:cant), createdISO});
+        moves.push({dateISO:new Date().toISOString(), code, sku, nombre, tela, delta:(Number.isNaN(cant)?0:cant), type:'import'});
+      }
+      imported++;
+      // actualizar contador KLL si los códigos importados traen números mayores
+      const m = code.match(/^KLL-(\d{4,})$/i);
+      if(m){ const n = parseInt(m[1]); if(n>=kllCounter) kllCounter = n+1; }
+    });
+    saveAll();
+    renderInventory(); refreshLabelSelect();
+    alert(`Importación completada.\nFilas importadas: ${imported}\nOmitidas (sin Código): ${skipped}`);
+  };
+  reader.readAsText(file);
+});
+
+/* =================== Utilidades =================== */
+function downloadCSV(filename, headers, rows){
+  const csv = headers.join(",")+"\n"+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+function parseCSV(text){
+  // Parser simple que soporta comillas
+  const lines = text.replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n").filter(l=>l.trim().length>0);
+  if(lines.length===0) return [];
+  const headers = splitCSVLine(lines[0]);
+  const out = [];
+  for(let i=1;i<lines.length;i++){
+    const cols = splitCSVLine(lines[i]);
+    const obj = {};
+    headers.forEach((h,idx)=> obj[h.trim()] = (cols[idx]||"").trim());
+    out.push(obj);
+  }
+  return out;
+}
+function splitCSVLine(line){
+  const res=[]; let cur=""; let inQ=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"' ){
+      if(inQ && line[i+1]==='"'){ cur+='"'; i++; }
+      else inQ=!inQ;
+    }else if(ch===',' && !inQ){
+      res.push(cur); cur="";
+    }else{
+      cur+=ch;
+    }
+  }
+  res.push(cur);
+  return res;
+}
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 function escapeJs(s){ return String(s).replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$').replace(/"/g,'\\"'); }
 </script>
