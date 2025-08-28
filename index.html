@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Inventario — Simple (KLL + SKU)</title>
+<!-- Librerías -->
+<script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <style>
   :root{
@@ -33,9 +35,7 @@
   /* Etiqueta preview */
   .label-preview { border:1px solid #000; padding:12px; width:320px; background:#fff; border-radius:6px; }
   .model { font-size:20px; font-weight:700; }
-  .fabric { font-size:16px; margin-top:2px; }
-  .sku { font-size:14px; margin-top:2px; }
-  .date { font-size:14px; margin-top:2px; }
+  .fabric, .sku, .date { font-size:14px; margin-top:2px; }
 
   /* Historial agrupado */
   .group{margin:10px 0}
@@ -51,6 +51,7 @@
   <!-- Tabs -->
   <div class="tabs">
     <button class="tab-btn active" data-tab="registrar">Registrar</button>
+    <button class="tab-btn" data-tab="escanear">Escanear</button>
     <button class="tab-btn" data-tab="inventario">Inventario</button>
     <button class="tab-btn" data-tab="etiquetas">Etiquetas</button>
     <button class="tab-btn" data-tab="config">Configuración y Herramientas</button>
@@ -66,6 +67,30 @@
     </div>
     <button id="btnGenerate">Guardar / Sumar</button>
     <div class="muted">Si ya existe el mismo <b>SKU + Modelo + Tela</b>, se suma cantidad y se reutiliza el mismo KLL.</div>
+  </section>
+
+  <!-- Escanear -->
+  <section id="escanear" class="card hidden">
+    <h2>Escanear (QR + Code128)</h2>
+    <div class="row">
+      <select id="cameraSelect" title="Selecciona cámara"></select>
+      <button id="btnStart" class="btn-secondary">Iniciar cámara</button>
+      <button id="btnStop" class="btn-secondary">Detener cámara</button>
+    </div>
+    <div id="reader" style="width:100%; max-width:420px; margin:8px auto;"></div>
+    <div class="row">
+      <input id="scanCode" placeholder="Código detectado (KLL o SKU)" readonly>
+      <input id="scanName" placeholder="Modelo" readonly>
+      <input id="scanFabric" placeholder="Tela" readonly>
+      <input id="scanSKU" placeholder="SKU" readonly>
+      <input id="scanQty" placeholder="Cantidad total" readonly>
+    </div>
+    <div class="row">
+      <button id="btnPlus1" class="btn-secondary">+1</button>
+      <input id="plusN" type="number" min="1" value="5" style="max-width:140px">
+      <button id="btnPlusN" class="btn-secondary">+N</button>
+    </div>
+    <div class="muted">Tras detectar, se pausa 1.2s para evitar dobles lecturas.</div>
   </section>
 
   <!-- Inventario -->
@@ -108,6 +133,12 @@
   <section id="config" class="card hidden">
     <h2>Configuración y Herramientas</h2>
 
+    <h3>Preferencias de escaneo</h3>
+    <label><input type="checkbox" id="prefBeep" checked> Sonido (beep al detectar)</label><br>
+    <label><input type="checkbox" id="prefVibrate" checked> Vibración (si el dispositivo lo soporta)</label>
+
+    <hr style="margin:14px 0">
+
     <h3>Importar / Exportar</h3>
     <div class="row">
       <input type="file" id="csvFile" accept=".csv">
@@ -129,15 +160,21 @@
 <script>
 /* ===== Estado & Persistencia ===== */
 let items = [];     // [{code, sku, nombre, tela, cantidad, createdISO}]
-let moves = [];     // [{dateISO, code, sku, nombre, tela, delta, type}] // type: 'register'|'import'
+let moves = [];     // [{dateISO, code, sku, nombre, tela, delta, type}] // type: 'register'|'import'|'scan'
 let kllCounter = 1;
+let prefs = { beep:true, vibrate:true };
 
 (function load(){
   try{
     items = JSON.parse(localStorage.getItem('items_simple')||'[]');
     moves = JSON.parse(localStorage.getItem('moves_simple')||'[]');
     kllCounter = parseInt(localStorage.getItem('kllCounter_simple')||'1');
-  }catch(e){ items=[]; moves=[]; kllCounter=1; }
+    const p = JSON.parse(localStorage.getItem('prefs_simple')||'{}');
+    prefs.beep = p.beep!==undefined ? p.beep : true;
+    prefs.vibrate = p.vibrate!==undefined ? p.vibrate : true;
+  }catch(e){ items=[]; moves=[]; kllCounter=1; prefs={beep:true, vibrate:true}; }
+  document.getElementById('prefBeep').checked = !!prefs.beep;
+  document.getElementById('prefVibrate').checked = !!prefs.vibrate;
   renderInventory();
   refreshLabelSelect();
 })();
@@ -145,16 +182,21 @@ function saveAll(){
   localStorage.setItem('items_simple', JSON.stringify(items));
   localStorage.setItem('moves_simple', JSON.stringify(moves));
   localStorage.setItem('kllCounter_simple', String(kllCounter));
+  localStorage.setItem('prefs_simple', JSON.stringify(prefs));
 }
 
-/* ===== Tabs muy simples ===== */
+/* ===== Tabs ===== */
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     document.querySelectorAll('section').forEach(s=>s.classList.add('hidden'));
     document.getElementById(btn.dataset.tab).classList.remove('hidden');
+
     if(btn.dataset.tab==='etiquetas') refreshLabelSelect();
+    // manejar cámara al entrar/salir de escanear
+    if(btn.dataset.tab==='escanear'){ initCameras(); }
+    else { stopScanner(); }
   });
 });
 
@@ -165,12 +207,10 @@ document.getElementById('btnGenerate').addEventListener('click', ()=>{
   const sku    = document.getElementById('newSKU').value.trim();
   if(!nombre || !tela || !sku){ alert("Completa Modelo, Tela y SKU"); return; }
 
-  // Buscar si ya existe este SKU+Modelo+Tela
   const existing = items.find(i=>i.sku.toLowerCase()===sku.toLowerCase() &&
                                  i.nombre.toLowerCase()===nombre.toLowerCase() &&
                                  i.tela.toLowerCase()===tela.toLowerCase());
-  const now = new Date();
-  const nowISO = now.toISOString();
+  const nowISO = new Date().toISOString();
 
   if(existing){
     existing.cantidad += 1;
@@ -184,7 +224,6 @@ document.getElementById('btnGenerate').addEventListener('click', ()=>{
     alert(`Nuevo producto creado con código ${code}`);
   }
   saveAll();
-  // limpiar
   document.getElementById('newName').value = "";
   document.getElementById('newFabric').value = "";
   document.getElementById('newSKU').value = "";
@@ -210,7 +249,6 @@ function inRange(iso){
   }
   return true;
 }
-
 function renderInventory(){
   const list = document.getElementById('inventory');
   if(!list) return;
@@ -235,10 +273,8 @@ function renderInventory(){
     list.appendChild(li);
   });
 
-  // Actualiza historial también
   renderHistory();
 }
-
 function renderHistory(){
   const box = document.getElementById('history');
   if(!box) return;
@@ -255,7 +291,7 @@ function renderHistory(){
 
   if(rows.length===0){ box.innerHTML = '<div class="muted">No hay movimientos para este filtro.</div>'; return; }
 
-  const groups = new Map(); // agrupa por día
+  const groups = new Map();
   rows.forEach(r=>{
     const day = (r.dateISO||"").slice(0,10);
     if(!groups.has(day)) groups.set(day, []);
@@ -279,7 +315,6 @@ function renderHistory(){
   }
   box.innerHTML = html;
 }
-
 function exportFilteredTotals(){
   const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
   const rows = items
@@ -299,7 +334,6 @@ function exportFilteredTotals(){
   ]);
   downloadCSV("inventario_totales_filtrado.csv", headers, data);
 }
-
 function exportFilteredHistory(){
   const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
   const rows = moves
@@ -319,6 +353,121 @@ function exportFilteredHistory(){
   });
   downloadCSV("inventario_historial_filtrado.csv", headers, data);
 }
+
+/* ===== Escáner (Html5Qrcode) ===== */
+let h5 = null;
+let currentCamId = null;
+let lastText = "";
+let resumeTimer = null;
+
+document.getElementById('btnStart').addEventListener('click', startScanner);
+document.getElementById('btnStop').addEventListener('click', stopScanner);
+
+async function initCameras(){
+  const select = document.getElementById('cameraSelect');
+  select.innerHTML = "";
+  try{
+    const cams = await Html5Qrcode.getCameras();
+    cams.forEach(c=>{
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.label || c.id;
+      select.appendChild(opt);
+    });
+    const rear = cams.find(c=>/back|rear|trase|environment/gi.test(c.label||""));
+    currentCamId = (rear ? rear.id : cams[0]?.id);
+    if(currentCamId) select.value = currentCamId;
+    select.onchange = ()=>{ currentCamId = select.value; if(h5){ stopScanner(); startScanner(); } };
+  }catch(e){
+    console.error(e);
+  }
+}
+async function startScanner(){
+  if(h5) return;
+  const camId = currentCamId || (await Html5Qrcode.getCameras())[0]?.id;
+  if(!camId){ alert("No hay cámaras disponibles."); return; }
+  h5 = new Html5Qrcode("reader");
+  const formats = [
+    Html5QrcodeSupportedFormats.QR_CODE,
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.EAN_13
+  ];
+  try{
+    await h5.start({deviceId:{exact:camId}}, {fps:10, qrbox:250, formatsToSupport:formats}, onScanSuccess, onScanFailure);
+  }catch(e){
+    console.error(e);
+    alert("No pude iniciar la cámara. Revisa permisos o intenta con otro navegador.");
+    h5 = null;
+  }
+}
+function stopScanner(){
+  if(!h5) return;
+  try{
+    h5.stop().then(()=>h5.clear()).catch(()=>{});
+  }catch(e){}
+  h5 = null;
+  lastText = "";
+  clearTimeout(resumeTimer);
+}
+function onScanFailure(){ /* silencioso */ }
+function onScanSuccess(text){
+  if(text===lastText) return;
+  lastText = text;
+  if(h5 && h5.pause) h5.pause(true);
+  clearTimeout(resumeTimer);
+  resumeTimer = setTimeout(()=>{ if(h5 && h5.resume) h5.resume(); lastText=""; }, 1200);
+
+  document.getElementById('scanCode').value = text;
+  const item = items.find(i=>i.code===text || (i.sku||"").toLowerCase()===text.toLowerCase());
+  if(item){
+    item.cantidad += 1;
+    const nowISO = new Date().toISOString();
+    moves.push({dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+1, type:'scan'});
+    if(prefs.beep) beep();
+    if(prefs.vibrate && navigator.vibrate) navigator.vibrate(80);
+    document.getElementById('scanName').value = item.nombre;
+    document.getElementById('scanFabric').value = item.tela;
+    document.getElementById('scanSKU').value = item.sku || "";
+    document.getElementById('scanQty').value = item.cantidad;
+    saveAll(); renderInventory();
+  }else{
+    document.getElementById('scanName').value = "No registrado";
+    document.getElementById('scanFabric').value = "";
+    document.getElementById('scanSKU').value = "";
+    document.getElementById('scanQty').value = "";
+  }
+}
+document.getElementById('btnPlus1').addEventListener('click', ()=>{
+  const code = document.getElementById('scanCode').value.trim();
+  if(!code) return;
+  const item = items.find(i=>i.code===code || (i.sku||"").toLowerCase()===code.toLowerCase());
+  if(!item) return;
+  item.cantidad += 1;
+  const nowISO = new Date().toISOString();
+  moves.push({dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+1, type:'scan'});
+  if(prefs.beep) beep();
+  if(prefs.vibrate && navigator.vibrate) navigator.vibrate(80);
+  saveAll(); renderInventory();
+  document.getElementById('scanQty').value = item.cantidad;
+});
+document.getElementById('btnPlusN').addEventListener('click', ()=>{
+  const n = parseInt(document.getElementById('plusN').value||"0");
+  const code = document.getElementById('scanCode').value.trim();
+  if(!n || !code) return;
+  const item = items.find(i=>i.code===code || (i.sku||"").toLowerCase()===code.toLowerCase());
+  if(!item) return;
+  item.cantidad += n;
+  const nowISO = new Date().toISOString();
+  moves.push({dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+n, type:'scan'});
+  if(prefs.beep) beep();
+  if(prefs.vibrate && navigator.vibrate) navigator.vibrate([60,30,60]);
+  saveAll(); renderInventory();
+  document.getElementById('scanQty').value = item.cantidad;
+});
+
+/* ===== Preferencias ===== */
+document.getElementById('prefBeep').addEventListener('change', (e)=>{ prefs.beep = e.target.checked; saveAll(); });
+document.getElementById('prefVibrate').addEventListener('change', (e)=>{ prefs.vibrate = e.target.checked; saveAll(); });
 
 /* ===== Etiquetas ===== */
 function refreshLabelSelect(){
@@ -367,7 +516,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
     <style>
       body{font-family:Arial, sans-serif; margin:0; padding:16px; text-align:center}
       .model{font-size:20px; font-weight:700}
-      .fabric{font-size:16px; margin-top:2px}
+      .fabric{font-size:14px; margin-top:2px}
       .sku{font-size:14px; margin-top:2px}
       .date{font-size:14px; margin-top:2px}
       svg{margin-top:10px}
@@ -392,7 +541,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   w.focus();
 });
 
-/* ===== Configuración y Herramientas: Import/Export ===== */
+/* ===== Import/Export ===== */
 document.getElementById('btnExportTotals').addEventListener('click', ()=>{
   if(items.length===0){ alert("No hay datos"); return; }
   const headers = ["Modelo","Tela","SKU","Código","Cantidad","Fecha Alta"];
@@ -414,7 +563,6 @@ document.getElementById('btnExportMovs').addEventListener('click', ()=>{
   });
   downloadCSV("inventario_movimientos.csv", headers, rows);
 });
-
 document.getElementById('btnImport').addEventListener('click', ()=>{
   const input = document.getElementById('csvFile');
   if(!input.files || !input.files[0]){ alert("Selecciona un archivo CSV"); return; }
@@ -432,7 +580,7 @@ document.getElementById('btnImport').addEventListener('click', ()=>{
       const cant  = parseInt((r["Cantidad"]||"0").trim()||"0");
       const fecha = (r["Fecha"]||"").trim();
 
-      if(!code){ skipped++; return; } // se respeta la regla: requiere Código
+      if(!code){ skipped++; return; }
       const existing = items.find(i=>i.code===code);
       const createdISO = fecha? new Date(fecha).toISOString() : new Date().toISOString();
 
@@ -449,8 +597,6 @@ document.getElementById('btnImport').addEventListener('click', ()=>{
         moves.push({dateISO:new Date().toISOString(), code, sku, nombre, tela, delta:(Number.isNaN(cant)?0:cant), type:'import'});
       }
       imported++;
-
-      // actualizar contador KLL si los códigos importados traen números mayores
       const m = code.match(/^KLL-(\d{4,})$/i);
       if(m){ const n = parseInt(m[1]); if(n>=kllCounter) kllCounter = n+1; }
     });
@@ -462,6 +608,17 @@ document.getElementById('btnImport').addEventListener('click', ()=>{
 });
 
 /* ===== Utilidades ===== */
+function beep(){
+  try{
+    const ac = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ac.createOscillator(); const g = ac.createGain();
+    o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ac.destination);
+    g.gain.setValueAtTime(0.0001, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.3, ac.currentTime+0.01);
+    o.start();
+    setTimeout(()=>{ g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+0.02); o.stop(ac.currentTime+0.03); }, 120);
+  }catch(e){}
+}
 function downloadCSV(filename, headers, rows){
   const csv = headers.join(",")+"\n"+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
   const blob = new Blob([csv],{type:"text/csv;charset=utf-8"});
@@ -486,17 +643,11 @@ function splitCSVLine(line){
   const res=[]; let cur=""; let inQ=false;
   for(let i=0;i<line.length;i++){
     const ch=line[i];
-    if(ch==='"'){
-      if(inQ && line[i+1]==='"'){ cur+='"'; i++; }
-      else inQ=!inQ;
-    }else if(ch===',' && !inQ){
-      res.push(cur); cur="";
-    }else{
-      cur+=ch;
-    }
+    if(ch==='"'){ if(inQ && line[i+1]==='"'){ cur+='"'; i++; } else inQ=!inQ; }
+    else if(ch===',' && !inQ){ res.push(cur); cur=""; }
+    else{ cur+=ch; }
   }
-  res.push(cur);
-  return res;
+  res.push(cur); return res;
 }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 function escapeJs(s){ return String(s).replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$').replace(/"/g,'\\"'); }
