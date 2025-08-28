@@ -4,20 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Inventario de Muebles — KLL</title>
+
+<!-- Librerías -->
+<script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+
 <style>
-  body { font-family: Arial, sans-serif; margin:0; background:#f3f4f6; }
-  header { background:#030302; color:#fff; padding:16px; text-align:center; font-weight:700; }
+  body { font-family: Arial, sans-serif; margin:0; background:#f3f4f6; color:#111827; }
+  header { background:#2563eb; color:#fff; padding:16px; text-align:center; font-weight:700; }
   .container { max-width:900px; margin:20px auto; padding:10px; }
-  .tabs { display:flex; gap:5px; margin-bottom:10px; }
-  .tab-btn { flex:1; padding:10px; cursor:pointer; border:none; background:#030302; border-radius:5px; }
-  .tab-btn.active { background:#000861; color:#fff; }
-  .card { background:#fff; border-radius:8px; padding:15px; margin-bottom:15px; }
+  .tabs { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+  .tab-btn { flex:1; min-width:150px; padding:10px; cursor:pointer; border:1px solid #e5e7eb; background:#fff; border-radius:8px; font-weight:700; }
+  .tab-btn.active { background:#2563eb; color:#fff; border-color:#2563eb; }
+  .card { background:#fff; border-radius:10px; padding:15px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
   .hidden { display:none; }
-  input,button,select { width:100%; padding:8px; margin:5px 0; }
-  button { background:#030302; color:#fff; border:none; cursor:pointer; }
+  input,button,select { width:100%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #e5e7eb; }
+  input:focus,select:focus { outline: none; box-shadow:0 0 0 3px rgba(37,99,235,.15); border-color:#2563eb; }
+  button { background:#2563eb; color:#fff; border:none; cursor:pointer; font-weight:700; }
   button:hover { background:#1d4ed8; }
-  .label-preview { border:1px solid #000; padding:10px; width:300px; margin-top:10px; }
+  /* etiqueta preview */
+  .label-preview { border:1px solid #000; padding:10px; width:300px; background:#fff; border-radius:6px; }
   .model { font-size:20px; font-weight:700; }
   .fabric { font-size:16px; margin-top:4px; }
   .date { font-size:14px; margin-top:4px; }
@@ -30,6 +36,7 @@
   <!-- Tabs -->
   <div class="tabs">
     <button class="tab-btn active" data-tab="registrar">Registrar</button>
+    <button class="tab-btn" data-tab="escanear">Escanear</button>
     <button class="tab-btn" data-tab="inventario">Inventario</button>
     <button class="tab-btn" data-tab="etiquetas">Etiquetas</button>
   </div>
@@ -39,128 +46,286 @@
     <h2>Registrar producto</h2>
     <input id="newName" placeholder="Modelo (ej. Sillón Roma)">
     <input id="newFabric" placeholder="Tela (ej. Lino Beige)">
-    <button onclick="generateProduct()">Generar código KLL y guardar</button>
+    <button id="btnGenerate">Generar código KLL y guardar</button>
+  </section>
+
+  <!-- Escanear -->
+  <section id="escanear" class="card hidden">
+    <h2>Escanear con cámara (QR + Code128)</h2>
+    <div id="reader" style="width:100%; max-width:420px; margin: 10px auto;"></div>
+    <input id="scanCode" placeholder="Código detectado" readonly>
+    <input id="scanName" placeholder="Modelo" readonly>
+    <input id="scanFabric" placeholder="Tela" readonly>
+    <input id="scanQty" placeholder="Cantidad total" readonly>
+    <div style="color:#6b7280; font-size:.9rem; margin-top:4px">
+      Si el código existe, la cantidad se incrementa automáticamente.
+    </div>
   </section>
 
   <!-- Inventario -->
   <section id="inventario" class="card hidden">
     <h2>Inventario</h2>
-    <input id="searchInput" placeholder="Buscar..." oninput="renderInventory()">
+    <input id="searchInput" placeholder="Buscar por modelo, tela o código" oninput="renderInventory()">
     <ul id="inventory"></ul>
+    <button id="btnCSV">Exportar CSV</button>
+    <input type="month" id="filterMonth" onchange="renderInventory()" style="margin-top:6px">
   </section>
 
   <!-- Etiquetas -->
   <section id="etiquetas" class="card hidden">
     <h2>Etiquetas</h2>
     <select id="labelSelect" onchange="showPreview()"></select>
-    <div id="previewWrap"></div>
-    <button onclick="printSelectedLabel()">Imprimir etiqueta</button>
+    <div id="previewWrap" style="margin-top:8px"></div>
+    <button id="btnPrint">Imprimir etiqueta</button>
+    <div style="color:#6b7280; font-size:.9rem; margin-top:4px">
+      Formato: Modelo (grande) · Tela · Fecha · Código de barras (CODE128)
+    </div>
   </section>
 
 </div>
 
 <script>
-let inventory = [];
-let counter = 1;
+/* ================= Estado & Datos ================= */
+let inventory = []; // {code, nombre, tela, cantidad, dateISO}
+let counter = 1;    // para KLL-####
 
-function generateProduct(){
+(function load() {
+  try {
+    const inv = localStorage.getItem('inventory');
+    const c   = localStorage.getItem('kllCounter');
+    inventory = inv ? JSON.parse(inv) : [];
+    counter   = c ? parseInt(c) : 1;
+  } catch(e) {
+    inventory = []; counter = 1;
+  }
+  renderInventory();
+  refreshLabelSelect();
+})();
+
+function saveAll(){
+  localStorage.setItem('inventory', JSON.stringify(inventory));
+  localStorage.setItem('kllCounter', String(counter));
+}
+
+/* ================= Tabs ================= */
+const tabBtns = document.querySelectorAll('.tab-btn');
+const sections = {
+  registrar: document.getElementById('registrar'),
+  escanear: document.getElementById('escanear'),
+  inventario: document.getElementById('inventario'),
+  etiquetas: document.getElementById('etiquetas')
+};
+
+let scanner = null; // html5-qrcode scanner instance
+
+tabBtns.forEach(b=>{
+  b.addEventListener('click', ()=>{
+    tabBtns.forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    Object.values(sections).forEach(s=>s.classList.add('hidden'));
+    const id = b.dataset.tab;
+    sections[id].classList.remove('hidden');
+
+    // iniciar/detener escáner según la pestaña
+    if (id === 'escanear') startScanner();
+    else stopScanner();
+  });
+});
+
+/* ================= Registrar ================= */
+document.getElementById('btnGenerate').addEventListener('click', ()=>{
   const nombre = document.getElementById('newName').value.trim();
-  const tela = document.getElementById('newFabric').value.trim();
-  if(!nombre || !tela){ alert("Completa ambos campos"); return; }
+  const tela   = document.getElementById('newFabric').value.trim();
+  if(!nombre || !tela){ alert("Completa modelo y tela"); return; }
 
   const code = "KLL-" + String(counter).padStart(4,"0");
   counter++;
 
-  const date = new Date().toLocaleDateString();
-  inventory.push({code, nombre, tela, cantidad:1, date});
+  const nowISO = new Date().toISOString();
+  // si ya existe por código, sumar cantidad; (normalmente no debería repetirse)
+  const existing = inventory.find(i=>i.code===code);
+  if (existing) existing.cantidad += 1;
+  else inventory.push({ code, nombre, tela, cantidad:1, dateISO: nowISO });
 
-  document.getElementById('newName').value="";
-  document.getElementById('newFabric').value="";
-
+  saveAll();
   renderInventory();
   refreshLabelSelect();
+
+  document.getElementById('newName').value = "";
+  document.getElementById('newFabric').value = "";
   alert("Producto registrado con código " + code);
+});
+
+/* ================= Escanear (QR + CODE128) ================= */
+function startScanner(){
+  if (scanner) return; // ya está
+  try{
+    // formatos a soportar
+    const formats = [
+      Html5QrcodeSupportedFormats.QR_CODE,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.EAN_13
+    ];
+    scanner = new Html5QrcodeScanner("reader", { fps:10, qrbox:250, formatsToSupport: formats });
+    scanner.render(onScanSuccess, onScanFailure);
+  }catch(e){
+    console.error(e);
+    alert("No pude iniciar la cámara. Revisa permisos o prueba con Chrome.");
+  }
 }
 
+function stopScanner(){
+  // Html5QrcodeScanner no expone stop fácil; al ocultar la sección dejamos de mostrar el video.
+  // Este patrón evita recrear múltiples instancias.
+}
+
+function onScanFailure(err){
+  // Silencioso para no saturar la consola
+}
+
+function onScanSuccess(decodedText){
+  document.getElementById('scanCode').value = decodedText;
+
+  // Buscar por code exacto
+  const item = inventory.find(i=>i.code === decodedText);
+
+  if (item){
+    // suma cantidad
+    item.cantidad += 1;
+    document.getElementById('scanName').value   = item.nombre;
+    document.getElementById('scanFabric').value = item.tela;
+    document.getElementById('scanQty').value    = item.cantidad;
+    saveAll();
+    renderInventory();
+  } else {
+    // si escaneaste un QR con texto o un código que no existe
+    document.getElementById('scanName').value   = "No registrado";
+    document.getElementById('scanFabric').value = "";
+    document.getElementById('scanQty').value    = "";
+  }
+}
+
+/* ================= Inventario ================= */
 function renderInventory(){
-  const q = document.getElementById('searchInput').value.toLowerCase();
   const list = document.getElementById('inventory');
-  list.innerHTML="";
-  inventory.filter(i => !q || i.nombre.toLowerCase().includes(q) || i.tela.toLowerCase().includes(q) || i.code.toLowerCase().includes(q))
-           .forEach(i=>{
+  if(!list) return;
+  const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
+  const m = (document.getElementById('filterMonth')?.value || ""); // YYYY-MM
+  list.innerHTML = "";
+
+  const data = inventory.filter(i=>{
+    const okQ = !q || i.nombre.toLowerCase().includes(q) || i.tela.toLowerCase().includes(q) || i.code.toLowerCase().includes(q);
+    const okM = !m || (i.dateISO||"").slice(0,7) === m;
+    return okQ && okM;
+  }).sort((a,b)=>(b.dateISO||"").localeCompare(a.dateISO||""));
+
+  data.forEach(i=>{
     const li = document.createElement("li");
-    li.textContent = `${i.nombre} - Tela: ${i.tela} - Código: ${i.code} - Cantidad: ${i.cantidad} - Fecha: ${i.date}`;
+    const dateTxt = i.dateISO ? new Date(i.dateISO).toLocaleDateString() : "";
+    li.innerHTML = `
+      ${escapeHtml(i.nombre)} - Tela: ${escapeHtml(i.tela)} - Código: ${escapeHtml(i.code)} - Cantidad: ${i.cantidad} - Fecha: ${escapeHtml(dateTxt)}
+      <div><svg class="bc"></svg></div>
+    `;
     list.appendChild(li);
+    try {
+      JsBarcode(li.querySelector('.bc'), i.code, {format:"CODE128", height:40, displayValue:true});
+    } catch(e) {}
   });
 }
 
+document.getElementById('btnCSV').addEventListener('click', ()=>{
+  if(inventory.length===0){ alert("No hay datos"); return; }
+  const headers = ["Modelo","Tela","Cantidad","Código","Fecha"];
+  const rows = inventory.map(i=>[
+    i.nombre, i.tela, i.cantidad, i.code,
+    i.dateISO ? new Date(i.dateISO).toLocaleDateString() : ""
+  ]);
+  const csv = headers.join(",")+"\n"+rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download="inventario_kll.csv"; a.click();
+  URL.revokeObjectURL(url);
+});
+
+/* ================= Etiquetas ================= */
 function refreshLabelSelect(){
   const sel = document.getElementById('labelSelect');
-  sel.innerHTML="";
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = "";
   inventory.forEach(i=>{
     const opt = document.createElement("option");
-    opt.value=i.code;
-    opt.textContent = `${i.nombre} - ${i.tela}`;
+    opt.value = i.code;
+    opt.textContent = `${i.nombre} · ${i.tela} · ${i.code}`;
     sel.appendChild(opt);
   });
+  if(prev && [...sel.options].some(o=>o.value===prev)) sel.value = prev;
   showPreview();
 }
 
 function showPreview(){
   const sel = document.getElementById('labelSelect');
   const wrap = document.getElementById('previewWrap');
-  wrap.innerHTML="";
-  if(!sel.value) return;
+  wrap.innerHTML = "";
+  if(!sel || !sel.value) return;
   const item = inventory.find(i=>i.code===sel.value);
+  if(!item) return;
+
+  const dateTxt = item.dateISO ? new Date(item.dateISO).toLocaleDateString() : "";
   const div = document.createElement("div");
-  div.className="label-preview";
+  div.className = "label-preview";
   div.innerHTML = `
-    <div class="model">${item.nombre}</div>
-    <div class="fabric">${item.tela}</div>
-    <div class="date">${item.date}</div>
-    <svg id="barcode"></svg>
+    <div class="model">${escapeHtml(item.nombre)}</div>
+    <div class="fabric">${escapeHtml(item.tela)}</div>
+    <div class="date">${escapeHtml(dateTxt)}</div>
+    <svg id="barcodePrev"></svg>
   `;
   wrap.appendChild(div);
-  JsBarcode("#barcode", item.code, {format:"CODE128", width:2, height:60, displayValue:true});
+  try {
+    JsBarcode("#barcodePrev", item.code, {format:"CODE128", width:2, height:60, displayValue:true});
+  } catch(e) {}
 }
 
-function printSelectedLabel(){
+document.getElementById('btnPrint').addEventListener('click', ()=>{
   const sel = document.getElementById('labelSelect');
-  if(!sel.value){ alert("Selecciona un producto"); return; }
+  if(!sel || !sel.value){ alert("Selecciona un producto"); return; }
   const item = inventory.find(i=>i.code===sel.value);
-  const w = window.open('', '', 'width=400,height=300');
-  w.document.write(`
-    <html><head><title>Etiqueta</title>
+  if(!item){ alert("Producto no encontrado"); return; }
+
+  const w = window.open('', '', 'width=420,height=360');
+  const dateTxt = item.dateISO ? new Date(item.dateISO).toLocaleDateString() : "";
+  const html = `
+    <html><head><title>Etiqueta ${escapeHtml(item.code)}</title>
     <style>
-      body{font-family:Arial; text-align:center; padding:20px;}
-      .model{font-size:20px;font-weight:700}
-      .fabric{font-size:16px;margin-top:4px}
-      .date{font-size:14px;margin-top:4px}
+      body{font-family:Arial, sans-serif; margin:0; padding:16px; text-align:center}
+      .model{font-size:20px; font-weight:700}
+      .fabric{font-size:16px; margin-top:4px}
+      .date{font-size:14px; margin-top:4px}
+      svg{margin-top:10px}
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
     </head><body>
-      <div class="model">${item.nombre}</div>
-      <div class="fabric">${item.tela}</div>
-      <div class="date">${item.date}</div>
+      <div class="model">${escapeHtml(item.nombre)}</div>
+      <div class="fabric">${escapeHtml(item.tela)}</div>
+      <div class="date">${escapeHtml(dateTxt)}</div>
       <svg id="b"></svg>
-      <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
       <script>
-        JsBarcode("#b","${item.code}",{format:"CODE128",width:2,height:60,displayValue:true});
+        try{
+          JsBarcode("#b","${escapeJs(item.code)}",{format:"CODE128",width:2,height:60,displayValue:true});
+        }catch(e){}
         window.onload=function(){window.print();}
       <\/script>
     </body></html>
-  `);
+  `;
+  w.document.write(html);
   w.document.close();
-}
-
-/* Tabs */
-document.querySelectorAll('.tab-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('section').forEach(s=>s.classList.add('hidden'));
-    document.getElementById(btn.dataset.tab).classList.remove('hidden');
-  });
+  w.focus();
 });
+
+/* ================= Utils ================= */
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+function escapeJs(s){ return String(s).replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$').replace(/"/g,'\\"'); }
 </script>
 </body>
 </html>
