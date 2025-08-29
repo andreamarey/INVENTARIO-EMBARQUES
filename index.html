@@ -32,18 +32,18 @@
   .btn-danger:hover{ background:#dc2626; }
   .row{display:flex; gap:10px; flex-wrap:wrap}
   .muted { color:var(--muted); font-size:.9rem; }
-  ul{padding-left:18px}
+  ul{padding-left:18px; margin:6px 0}
 
   /* Etiqueta preview */
   .label-preview { border:1px solid #000; padding:12px; width:320px; background:#fff; border-radius:6px; }
   .model { font-size:20px; font-weight:700; }
   .fabric, .sku, .date { font-size:14px; margin-top:2px; }
 
-  /* Historial agrupado / Conteo */
+  /* Historial / Conteo */
   .group{margin:10px 0}
   .group h3{margin:0 0 6px 0; font-size:1rem}
   .mov{padding:6px 8px; border:1px solid #e5e7eb; border-radius:8px; margin:4px 0; background:#fff}
-  .kv{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:.9rem}
+  .kv{font-family:ui-monospace, Menlo, Consolas, monospace; font-size:.9rem}
   table th, table td { font-size:14px; }
 </style>
 </head>
@@ -125,37 +125,31 @@
   <!-- Conteo mensual -->
   <section id="conteo" class="card hidden">
     <h2>Conteo mensual</h2>
-
     <div class="row">
       <input id="countLabel" placeholder="Nombre del corte (ej. Agosto 2025)">
       <button id="btnStartCount" class="btn-secondary">Iniciar conteo (cargar inventario actual)</button>
       <button id="btnSaveCount">Guardar corte</button>
     </div>
     <div class="muted">Ajusta las cantidades observadas en piso antes de guardar.</div>
-
     <div id="countEditor" style="margin-top:10px"></div>
-
     <hr style="margin:14px 0">
-
     <h3>Cortes guardados</h3>
     <div id="snapshotsList" class="muted">No hay cortes guardados.</div>
   </section>
 
-  <!-- Etiquetas -->
+  <!-- Etiquetas (BUSCADOR + SUGERENCIAS) -->
   <section id="etiquetas" class="card hidden">
     <h2>Etiquetas</h2>
     <div class="row">
       <input id="labelSearch" placeholder="Buscar por modelo, tela, SKU o código" oninput="renderLabelSuggestions()">
       <button id="btnPrint">Imprimir etiqueta</button>
     </div>
-
     <div id="labelSuggestions" class="muted" style="margin-top:6px">Escribe para ver sugerencias…</div>
-
     <div id="previewWrap" style="margin-top:12px"></div>
     <div class="muted" style="margin-top:6px">
       Formato: Modelo (grande) · Tela · <b>SKU</b> · Fecha · Código de barras (KLL)
-  </div>
-</section>
+    </div>
+  </section>
 
   <!-- Configuración y Herramientas -->
   <section id="config" class="card hidden">
@@ -196,12 +190,14 @@
 <script>
 /* ===== Estado & Persistencia ===== */
 let items = [];     // [{code, sku, nombre, tela, cantidad, createdISO}]
-let moves = [];     // [{dateISO, code, sku, nombre, tela, delta, type}] // type: 'register'|'import'|'scan'|'edit'
+let moves = [];     // [{dateISO, code, sku, nombre, tela, delta, type}] // type: 'register'|'import'|'scan'
 let kllCounter = 1;
 let prefs = { beep:true, vibrate:true };
 let snapshots = []; // [{id,label,createdISO,totals:[{code,sku,nombre,tela,cantidad}],notes?}]
-let countBuffer = []; // buffer de edición para conteo mensual
+let countBuffer = []; // buffer de conteo
+let selectedLabelCode = null; // Etiquetas (buscador)
 
+/* ===== Cargar ===== */
 (function load(){
   try{
     items = JSON.parse(localStorage.getItem('items_simple')||'[]');
@@ -215,7 +211,7 @@ let countBuffer = []; // buffer de edición para conteo mensual
   document.getElementById('prefBeep').checked = !!prefs.beep;
   document.getElementById('prefVibrate').checked = !!prefs.vibrate;
   renderInventory();
-  refreshLabelSelect();
+  refreshLabelSelect(); // resetea buscador de etiquetas
 })();
 function saveAll(){
   localStorage.setItem('items_simple', JSON.stringify(items));
@@ -225,21 +221,31 @@ function saveAll(){
   localStorage.setItem('snapshots_simple', JSON.stringify(snapshots));
 }
 
-/* ===== Tabs ===== */
+/* ===== Cambio de pestañas (protegido) ===== */
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     document.querySelectorAll('section').forEach(s=>s.classList.add('hidden'));
-    document.getElementById(btn.dataset.tab).classList.remove('hidden');
+    const sec = document.getElementById(btn.dataset.tab);
+    if (sec) sec.classList.remove('hidden');
 
-    if(btn.dataset.tab==='etiquetas') refreshLabelSelect();
-    if(btn.dataset.tab==='escanear'){ initCameras(); } else { stopScanner(); }
-    if(btn.dataset.tab==='conteo'){ renderCountEditor(); renderSnapshotsList(); }
+    if (btn.dataset.tab==='etiquetas') {
+      if (typeof refreshLabelSelect === 'function') refreshLabelSelect();
+    }
+    if (btn.dataset.tab==='escanear'){
+      if (typeof initCameras === 'function') initCameras();
+    } else {
+      if (typeof stopScanner === 'function') stopScanner();
+    }
+    if (btn.dataset.tab==='conteo'){
+      if (typeof renderCountEditor==='function') renderCountEditor();
+      if (typeof renderSnapshotsList==='function') renderSnapshotsList();
+    }
   });
 });
 
-/* ===== Registrar (SKU + KLL) ===== */
+/* ===== Registrar ===== */
 document.getElementById('btnGenerate').addEventListener('click', ()=>{
   const nombre = document.getElementById('newName').value.trim();
   const tela   = document.getElementById('newFabric').value.trim();
@@ -270,7 +276,7 @@ document.getElementById('btnGenerate').addEventListener('click', ()=>{
   refreshLabelSelect();
 });
 
-/* ===== Inventario: filtros de fecha + búsqueda + export ===== */
+/* ===== Inventario: filtros + export ===== */
 function parseInputDate(id){
   const el = document.getElementById(id);
   if(!el || !el.value) return null;
@@ -415,15 +421,6 @@ document.getElementById('btnSaveCount').addEventListener('click', ()=>{
   saveAll();
   renderSnapshotsList();
   alert("Corte guardado.");
-});
-// refrescar vista al entrar a la pestaña
-document.querySelectorAll('.tab-btn').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    if(btn.dataset.tab==='conteo'){
-      renderCountEditor();
-      renderSnapshotsList();
-    }
-  });
 });
 function renderCountEditor(){
   const box = document.getElementById('countEditor');
@@ -646,16 +643,16 @@ document.getElementById('btnPlusN').addEventListener('click', ()=>{
 document.getElementById('prefBeep').addEventListener('change', (e)=>{ prefs.beep = e.target.checked; saveAll(); });
 document.getElementById('prefVibrate').addEventListener('change', (e)=>{ prefs.vibrate = e.target.checked; saveAll(); });
 
-/* ===== Etiquetas (buscador con sugerencias) ===== */
-let selectedLabelCode = null;
-
-function refreshLabelSelect(){ // mantener el nombre para no tocar otras partes
+/* ===== Etiquetas — Buscador con sugerencias ===== */
+function refreshLabelSelect(){ // resetea buscador al entrar a la pestaña
   selectedLabelCode = null;
-  document.getElementById('labelSearch').value = "";
-  document.getElementById('labelSuggestions').innerHTML = 'Escribe para ver sugerencias…';
-  document.getElementById('previewWrap').innerHTML = '';
+  const s = document.getElementById('labelSearch');
+  const box = document.getElementById('labelSuggestions');
+  const prev = document.getElementById('previewWrap');
+  if (s) s.value = "";
+  if (box) box.innerHTML = 'Escribe para ver sugerencias…';
+  if (prev) prev.innerHTML = '';
 }
-
 function renderLabelSuggestions(){
   const box = document.getElementById('labelSuggestions');
   const q = (document.getElementById('labelSearch')?.value || "").toLowerCase().trim();
@@ -664,30 +661,17 @@ function renderLabelSuggestions(){
     box.innerHTML = 'Escribe para ver sugerencias…';
     return;
   }
-
-// Enter = seleccionar la primera sugerencia
-document.getElementById('labelSearch').addEventListener('keydown', (e)=>{
-  if(e.key === 'Enter'){
-    e.preventDefault(); // evita enviar formularios/recargar
-    const first = document.querySelector('#labelSuggestions li');
-    if(first) first.click(); // simula el click sobre la primera sugerencia
-  }
-});
-
-  // buscar por nombre, tela, sku o código
   const matches = items.filter(i=>{
     return i.nombre.toLowerCase().includes(q) ||
            i.tela.toLowerCase().includes(q) ||
            (i.sku||"").toLowerCase().includes(q) ||
            i.code.toLowerCase().includes(q);
-  }).slice(0,20); // máximo 20 sugerencias
+  }).slice(0,20);
 
   if(matches.length===0){
     box.innerHTML = '<span class="muted">Sin resultados.</span>';
     return;
   }
-
-  // lista clicable
   const ul = document.createElement('ul');
   ul.style.paddingLeft = '16px';
   matches.forEach(i=>{
@@ -697,14 +681,13 @@ document.getElementById('labelSearch').addEventListener('keydown', (e)=>{
     li.onclick = ()=>{
       selectedLabelCode = i.code;
       document.getElementById('labelSearch').value = `${i.nombre} · ${i.tela} · SKU ${i.sku||''} · ${i.code}`;
-      showPreview(); // pinta la etiqueta
+      showPreview();
     };
     ul.appendChild(li);
   });
   box.innerHTML = "";
   box.appendChild(ul);
 }
-
 function showPreview(){
   const wrap = document.getElementById('previewWrap');
   wrap.innerHTML = "";
@@ -724,11 +707,8 @@ function showPreview(){
     <svg id="barcodePrev"></svg>
   `;
   wrap.appendChild(div);
-  try{
-    JsBarcode("#barcodePrev", it.code, {format:"CODE128", width:2, height:60, displayValue:true});
-  }catch(e){}
+  try{ JsBarcode("#barcodePrev", it.code, {format:"CODE128", width:2, height:60, displayValue:true}); }catch(e){}
 }
-
 document.getElementById('btnPrint').addEventListener('click', ()=>{
   if(!selectedLabelCode){ alert("Primero busca y selecciona un producto de las sugerencias."); return; }
   const it = items.find(i=>i.code===selectedLabelCode);
@@ -764,6 +744,17 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   w.document.close();
   w.focus();
 });
+// Enter = seleccionar la primera sugerencia (protegido)
+const _labelSearchEl = document.getElementById('labelSearch');
+if (_labelSearchEl) {
+  _labelSearchEl.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      const first = document.querySelector('#labelSuggestions li');
+      if(first) first.click();
+    }
+  });
+}
 
 /* ===== Import/Export CSV ===== */
 document.getElementById('btnExportTotals').addEventListener('click', ()=>{
