@@ -145,12 +145,17 @@
   <section id="etiquetas" class="card hidden">
     <h2>Etiquetas</h2>
     <div class="row">
-      <select id="labelSelect" onchange="showPreview()"></select>
+      <input id="labelSearch" placeholder="Buscar por modelo, tela, SKU o código" oninput="renderLabelSuggestions()">
       <button id="btnPrint">Imprimir etiqueta</button>
     </div>
-    <div id="previewWrap" style="margin-top:8px"></div>
-    <div class="muted" style="margin-top:6px">Formato: Modelo (grande) · Tela · <b>SKU</b> · Fecha · Código de barras (KLL)</div>
-  </section>
+
+    <div id="labelSuggestions" class="muted" style="margin-top:6px">Escribe para ver sugerencias…</div>
+
+    <div id="previewWrap" style="margin-top:12px"></div>
+    <div class="muted" style="margin-top:6px">
+      Formato: Modelo (grande) · Tela · <b>SKU</b> · Fecha · Código de barras (KLL)
+  </div>
+</section>
 
   <!-- Configuración y Herramientas -->
   <section id="config" class="card hidden">
@@ -641,45 +646,92 @@ document.getElementById('btnPlusN').addEventListener('click', ()=>{
 document.getElementById('prefBeep').addEventListener('change', (e)=>{ prefs.beep = e.target.checked; saveAll(); });
 document.getElementById('prefVibrate').addEventListener('change', (e)=>{ prefs.vibrate = e.target.checked; saveAll(); });
 
-/* ===== Etiquetas ===== */
-function refreshLabelSelect(){
-  const sel = document.getElementById('labelSelect');
-  if(!sel) return;
-  const prev = sel.value;
-  sel.innerHTML = "";
-  items.forEach(i=>{
-    const opt = document.createElement('option');
-    opt.value = i.code;
-    opt.textContent = `${i.nombre} · ${i.tela} · SKU ${i.sku} · ${i.code}`;
-    sel.appendChild(opt);
-  });
-  if(prev && [...sel.options].some(o=>o.value===prev)) sel.value = prev;
-  showPreview();
+/* ===== Etiquetas (buscador con sugerencias) ===== */
+let selectedLabelCode = null;
+
+function refreshLabelSelect(){ // mantener el nombre para no tocar otras partes
+  selectedLabelCode = null;
+  document.getElementById('labelSearch').value = "";
+  document.getElementById('labelSuggestions').innerHTML = 'Escribe para ver sugerencias…';
+  document.getElementById('previewWrap').innerHTML = '';
 }
+
+function renderLabelSuggestions(){
+  const box = document.getElementById('labelSuggestions');
+  const q = (document.getElementById('labelSearch')?.value || "").toLowerCase().trim();
+  box.innerHTML = "";
+  if(!q){
+    box.innerHTML = 'Escribe para ver sugerencias…';
+    return;
+  }
+
+// Enter = seleccionar la primera sugerencia
+document.getElementById('labelSearch').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){
+    e.preventDefault(); // evita enviar formularios/recargar
+    const first = document.querySelector('#labelSuggestions li');
+    if(first) first.click(); // simula el click sobre la primera sugerencia
+  }
+});
+
+  // buscar por nombre, tela, sku o código
+  const matches = items.filter(i=>{
+    return i.nombre.toLowerCase().includes(q) ||
+           i.tela.toLowerCase().includes(q) ||
+           (i.sku||"").toLowerCase().includes(q) ||
+           i.code.toLowerCase().includes(q);
+  }).slice(0,20); // máximo 20 sugerencias
+
+  if(matches.length===0){
+    box.innerHTML = '<span class="muted">Sin resultados.</span>';
+    return;
+  }
+
+  // lista clicable
+  const ul = document.createElement('ul');
+  ul.style.paddingLeft = '16px';
+  matches.forEach(i=>{
+    const li = document.createElement('li');
+    li.style.cursor = 'pointer';
+    li.innerHTML = `<b>${escapeHtml(i.nombre)}</b> · ${escapeHtml(i.tela)} · SKU ${escapeHtml(i.sku||'')} · <span class="muted">${escapeHtml(i.code)}</span>`;
+    li.onclick = ()=>{
+      selectedLabelCode = i.code;
+      document.getElementById('labelSearch').value = `${i.nombre} · ${i.tela} · SKU ${i.sku||''} · ${i.code}`;
+      showPreview(); // pinta la etiqueta
+    };
+    ul.appendChild(li);
+  });
+  box.innerHTML = "";
+  box.appendChild(ul);
+}
+
 function showPreview(){
-  const sel = document.getElementById('labelSelect');
   const wrap = document.getElementById('previewWrap');
   wrap.innerHTML = "";
-  if(!sel || !sel.value) return;
-  const it = items.find(i=>i.code===sel.value);
-  if(!it) return;
+  if(!selectedLabelCode) return;
+
+  const it = items.find(i=>i.code===selectedLabelCode);
+  if(!it){ wrap.innerHTML = '<div class="muted">Producto no encontrado.</div>'; return; }
+
   const dateTxt = it.createdISO ? new Date(it.createdISO).toLocaleDateString() : "";
   const div = document.createElement('div');
   div.className="label-preview";
   div.innerHTML = `
     <div class="model">${escapeHtml(it.nombre)}</div>
     <div class="fabric">Tela: ${escapeHtml(it.tela)}</div>
-    <div class="sku">SKU: ${escapeHtml(it.sku)}</div>
+    <div class="sku">SKU: ${escapeHtml(it.sku||'')}</div>
     <div class="date">${escapeHtml(dateTxt)}</div>
     <svg id="barcodePrev"></svg>
   `;
   wrap.appendChild(div);
-  try{ JsBarcode("#barcodePrev", it.code, {format:"CODE128", width:2, height:60, displayValue:true}); }catch(e){}
+  try{
+    JsBarcode("#barcodePrev", it.code, {format:"CODE128", width:2, height:60, displayValue:true});
+  }catch(e){}
 }
+
 document.getElementById('btnPrint').addEventListener('click', ()=>{
-  const sel = document.getElementById('labelSelect');
-  if(!sel || !sel.value){ alert("Selecciona un producto"); return; }
-  const it = items.find(i=>i.code===sel.value);
+  if(!selectedLabelCode){ alert("Primero busca y selecciona un producto de las sugerencias."); return; }
+  const it = items.find(i=>i.code===selectedLabelCode);
   if(!it){ alert("Producto no encontrado"); return; }
   const dateTxt = it.createdISO ? new Date(it.createdISO).toLocaleDateString() : "";
   const w = window.open('', '', 'width=420,height=360');
@@ -697,7 +749,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
     </head><body>
       <div class="model">${escapeHtml(it.nombre)}</div>
       <div class="fabric">Tela: ${escapeHtml(it.tela)}</div>
-      <div class="sku">SKU: ${escapeHtml(it.sku)}</div>
+      <div class="sku">SKU: ${escapeHtml(it.sku||'')}</div>
       <div class="date">${escapeHtml(dateTxt)}</div>
       <svg id="b"></svg>
       <script>
