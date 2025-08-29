@@ -618,6 +618,59 @@ document.getElementById('btnImport').addEventListener('click', ()=>{
   reader.readAsText(file);
 });
 
+// ====== Sesión completa (JSON) ======
+document.getElementById('btnExportSession').addEventListener('click', ()=>{
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    items,
+    moves,
+    kllCounter,
+    prefs
+  };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'inventario_sesion_completa.json'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('btnImportSession').addEventListener('click', ()=>{
+  const input = document.getElementById('jsonSessionFile');
+  if(!input.files || !input.files[0]){ alert("Selecciona un archivo .json de sesión completa."); return; }
+  if(!confirm("Esto reemplazará TODO el inventario actual, movimientos, contador KLL y preferencias. ¿Continuar?")) return;
+
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try{
+      const data = JSON.parse(e.target.result);
+
+      // Validación básica
+      if(!data || !Array.isArray(data.items) || !Array.isArray(data.moves)){
+        alert("Archivo inválido: faltan 'items' o 'moves'."); return;
+      }
+
+      // Reemplazar todo
+      items = data.items;
+      moves = data.moves;
+      kllCounter = Number.isInteger(data.kllCounter) ? data.kllCounter : 1;
+      prefs = data.prefs && typeof data.prefs === 'object'
+        ? { beep: !!data.prefs.beep, vibrate: !!data.prefs.vibrate }
+        : { beep: true, vibrate: true };
+
+      saveAll();
+      renderInventory();
+      refreshLabelSelect();
+      alert("Sesión completa importada correctamente.");
+    }catch(err){
+      console.error(err);
+      alert("No se pudo leer el JSON. Verifica el archivo.");
+    }
+  };
+  reader.readAsText(file);
+});
+
 /* ===== Utilidades ===== */
 function beep(){
   try{
