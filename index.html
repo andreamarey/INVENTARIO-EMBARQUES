@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Inventario — Simple (KLL + SKU)</title>
+<title>Inventario — KLL + SKU</title>
 <!-- Librerías -->
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
@@ -16,7 +16,7 @@
   *{box-sizing:border-box}
   body { font-family: Arial, sans-serif; margin:0; background:var(--bg); color:var(--text); }
   header { background:var(--primary); color:#fff; padding:16px; text-align:center; font-weight:700; }
-  .container { max-width:1000px; margin:20px auto; padding:10px; }
+  .container { max-width:1100px; margin:20px auto; padding:10px; }
   .tabs { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
   .tab-btn { flex:1; min-width:150px; padding:10px; cursor:pointer; border:1px solid #e5e7eb; background:#fff; border-radius:8px; font-weight:700; }
   .tab-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
@@ -28,6 +28,8 @@
   button:hover { background:var(--primary-600); }
   .btn-secondary{ background:#6b7280; }
   .btn-secondary:hover{ background:#4b5563; }
+  .btn-danger{ background:#ef4444; }
+  .btn-danger:hover{ background:#dc2626; }
   .row{display:flex; gap:10px; flex-wrap:wrap}
   .muted { color:var(--muted); font-size:.9rem; }
   ul{padding-left:18px}
@@ -37,15 +39,16 @@
   .model { font-size:20px; font-weight:700; }
   .fabric, .sku, .date { font-size:14px; margin-top:2px; }
 
-  /* Historial agrupado */
+  /* Historial agrupado / Conteo */
   .group{margin:10px 0}
   .group h3{margin:0 0 6px 0; font-size:1rem}
   .mov{padding:6px 8px; border:1px solid #e5e7eb; border-radius:8px; margin:4px 0; background:#fff}
   .kv{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:.9rem}
+  table th, table td { font-size:14px; }
 </style>
 </head>
 <body>
-<header>Inventario — Simple (KLL + SKU)</header>
+<header>Inventario — KLL + SKU</header>
 <div class="container">
 
   <!-- Tabs -->
@@ -53,6 +56,7 @@
     <button class="tab-btn active" data-tab="registrar">Registrar</button>
     <button class="tab-btn" data-tab="escanear">Escanear</button>
     <button class="tab-btn" data-tab="inventario">Inventario</button>
+    <button class="tab-btn" data-tab="conteo">Conteo mensual</button>
     <button class="tab-btn" data-tab="etiquetas">Etiquetas</button>
     <button class="tab-btn" data-tab="config">Configuración y Herramientas</button>
   </div>
@@ -118,6 +122,25 @@
     <div id="history" class="muted">No hay movimientos.</div>
   </section>
 
+  <!-- Conteo mensual -->
+  <section id="conteo" class="card hidden">
+    <h2>Conteo mensual</h2>
+
+    <div class="row">
+      <input id="countLabel" placeholder="Nombre del corte (ej. Agosto 2025)">
+      <button id="btnStartCount" class="btn-secondary">Iniciar conteo (cargar inventario actual)</button>
+      <button id="btnSaveCount">Guardar corte</button>
+    </div>
+    <div class="muted">Ajusta las cantidades observadas en piso antes de guardar.</div>
+
+    <div id="countEditor" style="margin-top:10px"></div>
+
+    <hr style="margin:14px 0">
+
+    <h3>Cortes guardados</h3>
+    <div id="snapshotsList" class="muted">No hay cortes guardados.</div>
+  </section>
+
   <!-- Etiquetas -->
   <section id="etiquetas" class="card hidden">
     <h2>Etiquetas</h2>
@@ -139,7 +162,7 @@
 
     <hr style="margin:14px 0">
 
-    <h3>Importar / Exportar</h3>
+    <h3>Importar / Exportar (CSV)</h3>
     <div class="row">
       <input type="file" id="csvFile" accept=".csv">
       <button id="btnImport" class="btn-secondary">Importar CSV (requiere columna “Código”)</button>
@@ -149,31 +172,30 @@
       <button id="btnExportMovs" class="btn-secondary">Exportar CSV (Movimientos)</button>
     </div>
 
+    <hr style="margin:14px 0">
+
+    <h3>Sesión completa (JSON)</h3>
+    <div class="row">
+      <button id="btnExportSession">Exportar sesión completa (JSON)</button>
+      <input type="file" id="jsonSessionFile" accept=".json">
+      <button id="btnImportSession" class="btn-secondary">Importar sesión completa (JSON)</button>
+    </div>
     <div class="muted" style="margin-top:8px">
-      Formato CSV para importar (encabezados): <span class="kv">Modelo,Tela,SKU,Cantidad,Código,Fecha</span>.<br>
-      Si falta <b>Código</b>, la fila se omite (se respeta tu política de códigos).
+      Exporta/Importa <b>inventario + movimientos + contador KLL + preferencias + cortes mensuales</b> en un solo archivo.<br>
+      Al <b>importar</b> se reemplaza todo el contenido actual por el del archivo.
     </div>
   </section>
 
-<hr style="margin:14px 0">
-
-   <h3>Sesión completa (JSON)</h3>
-   <div class="row">
-     <button id="btnExportSession">Exportar sesión completa (JSON)</button>
-     <input type="file" id="jsonSessionFile" accept=".json">
-     <button id="btnImportSession" class="btn-secondary">Importar sesión completa (JSON)</button>
-   </div>
-      <div class="muted" style="margin-top:8px">
-      Exporta/Importa <b>inventario + movimientos + contador KLL + preferencias</b> en un solo archivo.<br>
-      Al <b>importar</b> se reemplaza todo el contenido actual.
 </div>
 
 <script>
 /* ===== Estado & Persistencia ===== */
 let items = [];     // [{code, sku, nombre, tela, cantidad, createdISO}]
-let moves = [];     // [{dateISO, code, sku, nombre, tela, delta, type}] // type: 'register'|'import'|'scan'
+let moves = [];     // [{dateISO, code, sku, nombre, tela, delta, type}] // type: 'register'|'import'|'scan'|'edit'
 let kllCounter = 1;
 let prefs = { beep:true, vibrate:true };
+let snapshots = []; // [{id,label,createdISO,totals:[{code,sku,nombre,tela,cantidad}],notes?}]
+let countBuffer = []; // buffer de edición para conteo mensual
 
 (function load(){
   try{
@@ -183,7 +205,8 @@ let prefs = { beep:true, vibrate:true };
     const p = JSON.parse(localStorage.getItem('prefs_simple')||'{}');
     prefs.beep = p.beep!==undefined ? p.beep : true;
     prefs.vibrate = p.vibrate!==undefined ? p.vibrate : true;
-  }catch(e){ items=[]; moves=[]; kllCounter=1; prefs={beep:true, vibrate:true}; }
+    snapshots = JSON.parse(localStorage.getItem('snapshots_simple')||'[]');
+  }catch(e){ items=[]; moves=[]; kllCounter=1; prefs={beep:true, vibrate:true}; snapshots=[]; }
   document.getElementById('prefBeep').checked = !!prefs.beep;
   document.getElementById('prefVibrate').checked = !!prefs.vibrate;
   renderInventory();
@@ -194,6 +217,7 @@ function saveAll(){
   localStorage.setItem('moves_simple', JSON.stringify(moves));
   localStorage.setItem('kllCounter_simple', String(kllCounter));
   localStorage.setItem('prefs_simple', JSON.stringify(prefs));
+  localStorage.setItem('snapshots_simple', JSON.stringify(snapshots));
 }
 
 /* ===== Tabs ===== */
@@ -205,9 +229,8 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     document.getElementById(btn.dataset.tab).classList.remove('hidden');
 
     if(btn.dataset.tab==='etiquetas') refreshLabelSelect();
-    // manejar cámara al entrar/salir de escanear
-    if(btn.dataset.tab==='escanear'){ initCameras(); }
-    else { stopScanner(); }
+    if(btn.dataset.tab==='escanear'){ initCameras(); } else { stopScanner(); }
+    if(btn.dataset.tab==='conteo'){ renderCountEditor(); renderSnapshotsList(); }
   });
 });
 
@@ -365,6 +388,148 @@ function exportFilteredHistory(){
   downloadCSV("inventario_historial_filtrado.csv", headers, data);
 }
 
+/* ===== Conteo mensual ===== */
+document.getElementById('btnStartCount').addEventListener('click', ()=>{
+  countBuffer = items.map(i=>({
+    code:i.code, sku:i.sku, nombre:i.nombre, tela:i.tela,
+    cantidad:i.cantidad
+  }));
+  renderCountEditor();
+});
+document.getElementById('btnSaveCount').addEventListener('click', ()=>{
+  if(!countBuffer || countBuffer.length===0){ alert("Primero inicia un conteo."); return; }
+  const label = (document.getElementById('countLabel').value || "").trim();
+  if(!label){ alert("Pon un nombre al corte (ej. Agosto 2025)."); return; }
+  const snap = {
+    id: "snap_" + Date.now(),
+    label,
+    createdISO: new Date().toISOString(),
+    totals: countBuffer.map(x=>({ ...x }))
+  };
+  snapshots.push(snap);
+  saveAll();
+  renderSnapshotsList();
+  alert("Corte guardado.");
+});
+// refrescar vista al entrar a la pestaña
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if(btn.dataset.tab==='conteo'){
+      renderCountEditor();
+      renderSnapshotsList();
+    }
+  });
+});
+function renderCountEditor(){
+  const box = document.getElementById('countEditor');
+  if(!box) return;
+  if(!countBuffer || countBuffer.length===0){
+    box.innerHTML = '<div class="muted">No hay conteo iniciado. Pulsa "Iniciar conteo".</div>';
+    return;
+  }
+  let html = `
+    <div class="muted">Edita las cantidades observadas. Solo afecta al corte, no al inventario actual.</div>
+    <div style="overflow:auto">
+    <table style="width:100%; border-collapse:collapse; margin-top:8px">
+      <thead>
+        <tr>
+          <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:6px">Modelo</th>
+          <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:6px">Tela</th>
+          <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:6px">SKU</th>
+          <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:6px">Código</th>
+          <th style="text-align:right; border-bottom:1px solid #e5e7eb; padding:6px">Cantidad</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+  countBuffer.forEach((r, idx)=>{
+    html += `
+      <tr>
+        <td style="padding:6px">${escapeHtml(r.nombre)}</td>
+        <td style="padding:6px">${escapeHtml(r.tela)}</td>
+        <td style="padding:6px">${escapeHtml(r.sku||'')}</td>
+        <td style="padding:6px">${escapeHtml(r.code)}</td>
+        <td style="padding:6px; text-align:right">
+          <input type="number" min="0" value="${r.cantidad}" data-idx="${idx}" style="width:100px; text-align:right">
+        </td>
+      </tr>
+    `;
+  });
+  html += `</tbody></table></div>`;
+  box.innerHTML = html;
+
+  box.querySelectorAll('input[type="number"]').forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      const i = parseInt(inp.getAttribute('data-idx'));
+      let v = parseInt(inp.value||"0");
+      if(Number.isNaN(v) || v<0) v = 0;
+      countBuffer[i].cantidad = v;
+    });
+  });
+}
+function renderSnapshotsList(){
+  const box = document.getElementById('snapshotsList');
+  if(!box) return;
+  if(!snapshots || snapshots.length===0){
+    box.innerHTML = '<div class="muted">No hay cortes guardados.</div>';
+    return;
+  }
+  let html = "";
+  const arr = [...snapshots].sort((a,b)=>(b.createdISO||"").localeCompare(a.createdISO||""));
+  arr.forEach(s=>{
+    const dateTxt = new Date(s.createdISO).toLocaleString();
+    const totalPzas = s.totals.reduce((acc,t)=>acc+(parseInt(t.cantidad)||0),0);
+    html += `
+      <div class="mov">
+        <div><b>${escapeHtml(s.label)}</b> · ${dateTxt} · Total piezas: ${totalPzas}</div>
+        <div style="margin-top:6px" class="row">
+          <button class="btn-secondary" data-exp="${s.id}">Exportar CSV</button>
+          <button class="btn-secondary" data-view="${s.id}">Ver detalle</button>
+          <button class="btn-danger" data-del="${s.id}">Eliminar</button>
+        </div>
+      </div>
+    `;
+  });
+  box.innerHTML = html;
+
+  box.querySelectorAll('[data-exp]').forEach(btn=>{
+    btn.addEventListener('click', ()=> exportSnapshotCSV(btn.getAttribute('data-exp')));
+  });
+  box.querySelectorAll('[data-view]').forEach(btn=>{
+    btn.addEventListener('click', ()=> viewSnapshot(btn.getAttribute('data-view')));
+  });
+  box.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.getAttribute('data-del');
+      const s = snapshots.find(x=>x.id===id);
+      if(!s) return;
+      if(!confirm(`¿Eliminar el corte "${s.label}"?`)) return;
+      snapshots = snapshots.filter(x=>x.id!==id);
+      saveAll(); renderSnapshotsList();
+    });
+  });
+}
+function exportSnapshotCSV(id){
+  const s = snapshots.find(x=>x.id===id);
+  if(!s){ alert("Corte no encontrado"); return; }
+  const headers = ["Modelo","Tela","SKU","Código","Cantidad","Corte","Fecha de corte"];
+  const rows = s.totals.map(t=>[
+    t.nombre, t.tela, t.sku||"", t.code, t.cantidad, s.label, new Date(s.createdISO).toLocaleString()
+  ]);
+  downloadCSV(`corte_${s.label.replace(/\s+/g,'_')}.csv`, headers, rows);
+}
+function viewSnapshot(id){
+  const s = snapshots.find(x=>x.id===id);
+  if(!s){ alert("Corte no encontrado"); return; }
+  const top = `${s.label} — ${new Date(s.createdISO).toLocaleString()}`;
+  let txt = top + "\n\n";
+  s.totals.slice(0,60).forEach(t=>{
+    txt += `${t.nombre} · ${t.tela} · SKU ${t.sku||''} · ${t.code} · Cant: ${t.cantidad}\n`;
+  });
+  if(s.totals.length>60) txt += `\n... (${s.totals.length-60} más)`;
+  alert(txt);
+}
+
 /* ===== Escáner (Html5Qrcode) ===== */
 let h5 = null;
 let currentCamId = null;
@@ -413,12 +578,8 @@ async function startScanner(){
 }
 function stopScanner(){
   if(!h5) return;
-  try{
-    h5.stop().then(()=>h5.clear()).catch(()=>{});
-  }catch(e){}
-  h5 = null;
-  lastText = "";
-  clearTimeout(resumeTimer);
+  try{ h5.stop().then(()=>h5.clear()).catch(()=>{}); }catch(e){}
+  h5 = null; lastText = ""; clearTimeout(resumeTimer);
 }
 function onScanFailure(){ /* silencioso */ }
 function onScanSuccess(text){
@@ -552,7 +713,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   w.focus();
 });
 
-/* ===== Import/Export ===== */
+/* ===== Import/Export CSV ===== */
 document.getElementById('btnExportTotals').addEventListener('click', ()=>{
   if(items.length===0){ alert("No hay datos"); return; }
   const headers = ["Modelo","Tela","SKU","Código","Cantidad","Fecha Alta"];
@@ -618,15 +779,16 @@ document.getElementById('btnImport').addEventListener('click', ()=>{
   reader.readAsText(file);
 });
 
-// ====== Sesión completa (JSON) ======
+/* ===== Sesión completa (JSON) ===== */
 document.getElementById('btnExportSession').addEventListener('click', ()=>{
   const payload = {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     items,
     moves,
     kllCounter,
-    prefs
+    prefs,
+    snapshots
   };
   const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json;charset=utf-8'});
   const url = URL.createObjectURL(blob);
@@ -634,34 +796,33 @@ document.getElementById('btnExportSession').addEventListener('click', ()=>{
   a.href = url; a.download = 'inventario_sesion_completa.json'; a.click();
   URL.revokeObjectURL(url);
 });
-
 document.getElementById('btnImportSession').addEventListener('click', ()=>{
   const input = document.getElementById('jsonSessionFile');
   if(!input.files || !input.files[0]){ alert("Selecciona un archivo .json de sesión completa."); return; }
-  if(!confirm("Esto reemplazará TODO el inventario actual, movimientos, contador KLL y preferencias. ¿Continuar?")) return;
+  if(!confirm("Esto reemplazará TODO el inventario actual, movimientos, contador KLL, preferencias y (si vienen) los cortes mensuales. ¿Continuar?")) return;
 
   const file = input.files[0];
   const reader = new FileReader();
   reader.onload = (e)=>{
     try{
       const data = JSON.parse(e.target.result);
-
-      // Validación básica
       if(!data || !Array.isArray(data.items) || !Array.isArray(data.moves)){
         alert("Archivo inválido: faltan 'items' o 'moves'."); return;
       }
-
-      // Reemplazar todo
       items = data.items;
       moves = data.moves;
       kllCounter = Number.isInteger(data.kllCounter) ? data.kllCounter : 1;
       prefs = data.prefs && typeof data.prefs === 'object'
         ? { beep: !!data.prefs.beep, vibrate: !!data.prefs.vibrate }
         : { beep: true, vibrate: true };
+      if(Array.isArray(data.snapshots)) snapshots = data.snapshots;
 
       saveAll();
       renderInventory();
       refreshLabelSelect();
+      const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+      if(activeTab==='conteo'){ renderSnapshotsList(); renderCountEditor(); }
+
       alert("Sesión completa importada correctamente.");
     }catch(err){
       console.error(err);
