@@ -34,9 +34,9 @@
   .muted { color:var(--muted); font-size:.9rem; }
   ul{padding-left:18px; margin:6px 0}
 
-  /* Vista previa en pantalla (no afecta el tamaño físico de impresión) */
-  .label-preview { border:1px solid #000; padding:12px; width:360px; background:#fff; border-radius:6px; }
-  .model { font-size:22px; font-weight:700; }
+  /* Etiqueta preview */
+  .label-preview { border:1px solid #000; padding:12px; width:320px; background:#fff; border-radius:6px; }
+  .model { font-size:20px; font-weight:700; }
   .fabric, .sku, .date { font-size:14px; margin-top:2px; }
 
   /* Historial / Conteo */
@@ -714,30 +714,16 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   const it = items.find(i=>i.code===selectedLabelCode);
   if(!it){ alert("Producto no encontrado"); return; }
   const dateTxt = it.createdISO ? new Date(it.createdISO).toLocaleDateString() : "";
-
-  // Ventana de impresión con tamaño físico 101.5 × 152.4 mm
-  const w = window.open('', '', 'width=480,height=760');
+  const w = window.open('', '', 'width=420,height=360');
   const html = `
     <html><head><title>Etiqueta ${escapeHtml(it.code)}</title>
     <style>
-      @page {
-        size: 101.5mm 152.4mm;
-        margin: 0;
-      }
-      body{
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 10mm;             /* margen interior dentro de la etiqueta */
-        text-align: center;
-        width: 101.5mm;
-        height: 152.4mm;
-        box-sizing: border-box;
-      }
-      .model{ font-size: 28pt; font-weight:700; }
-      .fabric{ font-size: 16pt; margin-top: 4mm; }
-      .sku{    font-size: 16pt; margin-top: 2mm; }
-      .date{   font-size: 14pt; margin-top: 2mm; }
-      svg{ margin-top: 8mm; width: 90mm; height: 25mm; }
+      body{font-family:Arial, sans-serif; margin:0; padding:16px; text-align:center}
+      .model{font-size:20px; font-weight:700}
+      .fabric{font-size:14px; margin-top:2px}
+      .sku{font-size:14px; margin-top:2px}
+      .date{font-size:14px; margin-top:2px}
+      svg{margin-top:10px}
     </style>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
     </head><body>
@@ -758,6 +744,17 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   w.document.close();
   w.focus();
 });
+// Enter = seleccionar la primera sugerencia (protegido)
+const _labelSearchEl = document.getElementById('labelSearch');
+if (_labelSearchEl) {
+  _labelSearchEl.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      const first = document.querySelector('#labelSuggestions li');
+      if(first) first.click();
+    }
+  });
+}
 
 /* ===== Import/Export CSV ===== */
 document.getElementById('btnExportTotals').addEventListener('click', ()=>{
