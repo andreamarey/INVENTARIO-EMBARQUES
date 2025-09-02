@@ -34,11 +34,12 @@
   .muted { color:var(--muted); font-size:.9rem; }
   ul{padding-left:18px; margin:6px 0}
 
-  /* Vista previa de etiqueta en pantalla */
-  .label-preview { border:1px solid #000; padding:12px; width:360px; background:#fff; border-radius:6px; }
-  .model { font-size:22px; font-weight:700; }
+  /* Etiqueta preview */
+  .label-preview { border:1px solid #000; padding:12px; width:320px; background:#fff; border-radius:6px; }
+  .model { font-size:20px; font-weight:700; }
   .fabric, .sku, .date { font-size:14px; margin-top:2px; }
 
+  /* Historial / Conteo */
   .group{margin:10px 0}
   .group h3{margin:0 0 6px 0; font-size:1rem}
   .mov{padding:6px 8px; border:1px solid #e5e7eb; border-radius:8px; margin:4px 0; background:#fff}
@@ -210,7 +211,7 @@ let selectedLabelCode = null; // Etiquetas (buscador)
   document.getElementById('prefBeep').checked = !!prefs.beep;
   document.getElementById('prefVibrate').checked = !!prefs.vibrate;
   renderInventory();
-  refreshLabelSelect();
+  refreshLabelSelect(); // resetea buscador de etiquetas
 })();
 function saveAll(){
   localStorage.setItem('items_simple', JSON.stringify(items));
@@ -220,7 +221,7 @@ function saveAll(){
   localStorage.setItem('snapshots_simple', JSON.stringify(snapshots));
 }
 
-/* ===== Cambio de pestañas ===== */
+/* ===== Cambio de pestañas (protegido) ===== */
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -643,7 +644,7 @@ document.getElementById('prefBeep').addEventListener('change', (e)=>{ prefs.beep
 document.getElementById('prefVibrate').addEventListener('change', (e)=>{ prefs.vibrate = e.target.checked; saveAll(); });
 
 /* ===== Etiquetas — Buscador con sugerencias ===== */
-function refreshLabelSelect(){
+function refreshLabelSelect(){ // resetea buscador al entrar a la pestaña
   selectedLabelCode = null;
   const s = document.getElementById('labelSearch');
   const box = document.getElementById('labelSuggestions');
@@ -708,89 +709,34 @@ function showPreview(){
   wrap.appendChild(div);
   try{ JsBarcode("#barcodePrev", it.code, {format:"CODE128", width:2, height:60, displayValue:true}); }catch(e){}
 }
-
-/* ===== Imprimir etiqueta (Auto-ajuste de texto) ===== */
 document.getElementById('btnPrint').addEventListener('click', ()=>{
   if(!selectedLabelCode){ alert("Primero busca y selecciona un producto de las sugerencias."); return; }
   const it = items.find(i=>i.code===selectedLabelCode);
   if(!it){ alert("Producto no encontrado"); return; }
-
   const dateTxt = it.createdISO ? new Date(it.createdISO).toLocaleDateString() : "";
-
-  const w = window.open('', '', 'width=460,height=740');
+  const w = window.open('', '', 'width=420,height=360');
   const html = `
     <html><head><title>Etiqueta ${escapeHtml(it.code)}</title>
     <style>
-      @media print { html, body { margin:0; padding:0; } }
-      body{
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 8mm;
-        text-align: center;
-        box-sizing: border-box;
-        width: 100%; height: 100%;
-      }
-      .wrap { width: 100%; height: 100%; }
-      .model{ font-weight:700; }
-      .fabric, .sku, .date { margin-top: 3mm; }
-      .model{ font-size: 36pt; line-height: 1.05; }
-      .fabric{ font-size: 20pt; }
-      .sku{ font-size: 20pt; }
-      .date{ font-size: 16pt; }
-      .model, .fabric, .sku, .date { word-break: break-word; overflow-wrap: anywhere; }
-      svg{ margin-top: 8mm; width: 92%; height: 30mm; }
+      body{font-family:Arial, sans-serif; margin:0; padding:16px; text-align:center}
+      .model{font-size:20px; font-weight:700}
+      .fabric{font-size:14px; margin-top:2px}
+      .sku{font-size:14px; margin-top:2px}
+      .date{font-size:14px; margin-top:2px}
+      svg{margin-top:10px}
     </style>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
     </head><body>
-      <div class="wrap" id="content">
-        <div class="model" id="tModel">${escapeHtml(it.nombre)}</div>
-        <div class="fabric" id="tFabric">Tela: ${escapeHtml(it.tela)}</div>
-        <div class="sku" id="tSKU">SKU: ${escapeHtml(it.sku||'')}</div>
-        <div class="date" id="tDate">${escapeHtml(dateTxt)}</div>
-        <svg id="b"></svg>
-      </div>
+      <div class="model">${escapeHtml(it.nombre)}</div>
+      <div class="fabric">Tela: ${escapeHtml(it.tela)}</div>
+      <div class="sku">SKU: ${escapeHtml(it.sku||'')}</div>
+      <div class="date">${escapeHtml(dateTxt)}</div>
+      <svg id="b"></svg>
       <script>
-        try {
-          JsBarcode("#b","${escapeJs(it.code)}",{format:"CODE128", width:2, height:70, displayValue:true});
-        } catch(e) {}
-
-        (function autoFit(){
-          const tModel = document.getElementById('tModel');
-          const tFabric= document.getElementById('tFabric');
-          const tSKU   = document.getElementById('tSKU');
-          const tDate  = document.getElementById('tDate');
-          const svg    = document.getElementById('b');
-
-          let fsModel = 36, fsSub = 20, fsDate = 16, svgH = 30; // iniciales (pt/mm)
-          const minModel = 24, minSub = 14, minDate = 12, minSvgH = 22;
-
-          function applySizes(){
-            tModel.style.fontSize  = fsModel + 'pt';
-            tFabric.style.fontSize = fsSub   + 'pt';
-            tSKU.style.fontSize    = fsSub   + 'pt';
-            tDate.style.fontSize   = fsDate  + 'pt';
-            svg.style.height       = svgH + 'mm';
-          }
-          applySizes();
-
-          let guard = 0;
-          function fits(){ return document.body.scrollHeight <= (window.innerHeight + 2); }
-
-          while(!fits() && guard < 60){
-            guard++;
-            if(fsModel > minModel) fsModel -= 1;
-            if(fsSub   > minSub)   fsSub   -= 1;
-            if(fsDate  > minDate)  fsDate  -= 1;
-            if(svgH    > minSvgH)  svgH    -= 1;
-            applySizes();
-          }
-        })();
-
-        window.onload = function(){
-          window.print();
-          setTimeout(()=>window.close(), 300);
-        };
-        window.onafterprint = function(){ setTimeout(()=>window.close(), 100); };
+        try{
+          JsBarcode("#b","${escapeJs(it.code)}",{format:"CODE128",width:2,height:60,displayValue:true});
+        }catch(e){}
+        window.onload=function(){window.print();}
       <\/script>
     </body></html>
   `;
@@ -798,6 +744,17 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   w.document.close();
   w.focus();
 });
+// Enter = seleccionar la primera sugerencia (protegido)
+const _labelSearchEl = document.getElementById('labelSearch');
+if (_labelSearchEl) {
+  _labelSearchEl.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      const first = document.querySelector('#labelSuggestions li');
+      if(first) first.click();
+    }
+  });
+}
 
 /* ===== Import/Export CSV ===== */
 document.getElementById('btnExportTotals').addEventListener('click', ()=>{
