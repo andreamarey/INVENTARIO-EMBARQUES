@@ -713,25 +713,28 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   if(!selectedLabelCode){ alert("Primero busca y selecciona un producto de las sugerencias."); return; }
   const it = items.find(i=>i.code===selectedLabelCode);
   if(!it){ alert("Producto no encontrado"); return; }
+
   const dateTxt = it.createdISO ? new Date(it.createdISO).toLocaleDateString() : "";
-  const w = window.open('', '', 'width=420,height=360');
+
+  const w = window.open('', '', 'width=480,height=760');
   const html = `
     <html><head><title>Etiqueta ${escapeHtml(it.code)}</title>
- <style>
-  @media print { html, body { margin:0; padding:0; } }
-  body{
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 8mm;             /* borde interior; súbelo/bájalo si necesitas */
-    text-align: center;
-    box-sizing: border-box;
-  }
-  .model{  font-size: 36pt; font-weight:700; line-height:1.05; }
-  .fabric{ font-size: 20pt; margin-top: 6mm; }
-  .sku{    font-size: 20pt; margin-top: 4mm; }
-  .date{   font-size: 16pt; margin-top: 4mm; }
-  svg{ margin-top: 10mm; width: 92%; height: 30mm; }
-</style>
+    <style>
+      @media print { html, body { margin:0; padding:0; } }
+      body{
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 8mm;            /* margen interior de la etiqueta */
+        text-align: center;
+        box-sizing: border-box;
+      }
+      .model{ font-size: 36pt; font-weight:700; line-height:1.05; }
+      .fabric{ font-size: 20pt; margin-top: 6mm; }
+      .sku{    font-size: 20pt; margin-top: 4mm; }
+      .date{   font-size: 16pt; margin-top: 4mm; }
+      /* código de barras grande */
+      svg{ margin-top: 10mm; width: 95%; height: 35mm; }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
     </head><body>
       <div class="model">${escapeHtml(it.nombre)}</div>
@@ -740,10 +743,15 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
       <div class="date">${escapeHtml(dateTxt)}</div>
       <svg id="b"></svg>
       <script>
-        try{
-          JsBarcode("#b","${escapeJs(it.code)}",{format:"CODE128",width:2,height:60,displayValue:true});
+        try {
+          JsBarcode("#b","${escapeJs(it.code)}",{
+            format:"CODE128",
+            width:3,       // más ancho (antes era 2)
+            height:90,     // más alto (antes era 60)
+            displayValue:true
+          });
         }catch(e){}
-        window.onload=function(){window.print();}
+        window.onload=function(){ window.print(); }
       <\/script>
     </body></html>
   `;
