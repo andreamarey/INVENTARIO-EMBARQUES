@@ -717,14 +717,25 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
 
   const dateTxt = it.createdISO ? new Date(it.createdISO).toLocaleDateString() : "";
 
-  const w = window.open('', '', 'width=820,height=520'); // vista previa apaisada
+  // 1) Generamos el SVG del código de barras EN ESTA PÁGINA (ya tienes JsBarcode cargado aquí)
+  //    Para eso creamos un SVG temporal, lo llenamos y luego tomamos su markup.
+  const tmpSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  try{
+    JsBarcode(tmpSvg, it.code, { format:"CODE128", width:2.1, height:72, displayValue:true });
+  }catch(e){
+    console.error(e);
+    alert("No pude generar el código de barras.");
+    return;
+  }
+  const svgMarkup = tmpSvg.outerHTML; // este string lo pegaremos en el popup
+
+  // 2) Abrimos popup sin librerías (más estable para la impresora)
+  const w = window.open('', '', 'width=820,height=520'); // vista previa horizontal
   const html = `
     <html><head><title>Etiqueta ${escapeHtml(it.code)}</title>
     <style>
-      @media print {
-        @page { size: landscape; }   /* pedir horizontal al driver */
-        html, body { margin:0; padding:0; }
-      }
+      /* No forzamos @page; la orientación se elige en el cuadro de impresión */
+      @media print { html, body { margin:0; padding:0; } }
       body{
         font-family: Arial, sans-serif;
         margin: 0;
@@ -739,29 +750,27 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
       .sku{    font-size: 20pt; margin-top: 2mm; }
       .date{   font-size: 16pt; margin-top: 2mm; }
       .model, .fabric, .sku, .date { word-break: break-word; overflow-wrap: anywhere; }
-      svg{ margin-top: 8mm; width: 94%; height: 30mm; } /* barras más altas */
+      /* El contenedor del código; el SVG real se inyecta desde el padre */
+      #barcodeSlot{ margin-top: 8mm; width: 94%; }
+      #barcodeSlot svg{ width:100%; height:30mm; } /* alto visible del código */
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
     </head><body>
       <div class="wrap" id="content">
         <div class="model" id="tModel">${escapeHtml(it.nombre)}</div>
         <div class="fabric" id="tFabric">Tela: ${escapeHtml(it.tela)}</div>
         <div class="sku" id="tSKU">SKU: ${escapeHtml(it.sku||'')}</div>
         <div class="date" id="tDate">${escapeHtml(dateTxt)}</div>
-        <svg id="b"></svg>
+        <div id="barcodeSlot"></div>
       </div>
-      <script>
-        try {
-          JsBarcode("#b","${escapeJs(it.code)}",{format:"CODE128", width:2.1, height:72, displayValue:true});
-        } catch(e) {}
 
-        // Auto-fit: reduce poco a poco si no cabe
-        (function autoFit(){
+      <script>
+        // Auto-fit: reduce si no cabe (sin depender de librerías externas)
+        function autoFit(){
           const tModel = document.getElementById('tModel');
           const tFabric= document.getElementById('tFabric');
           const tSKU   = document.getElementById('tSKU');
           const tDate  = document.getElementById('tDate');
-          const svg    = document.getElementById('b');
+          const svgEl  = document.querySelector('#barcodeSlot svg');
 
           let fsModel = 38, fsSub = 20, fsDate = 16, svgH = 30; // iniciales (pt/mm)
           const minModel = 24, minSub = 14, minDate = 12, minSvgH = 22;
@@ -771,7 +780,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
             tFabric.style.fontSize = fsSub   + 'pt';
             tSKU.style.fontSize    = fsSub   + 'pt';
             tDate.style.fontSize   = fsDate  + 'pt';
-            svg.style.height       = svgH + 'mm';
+            if(svgEl) svgEl.style.height = svgH + 'mm';
           }
           applySizes();
 
@@ -786,19 +795,33 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
             if(svgH    > minSvgH)  svgH    -= 1;
             applySizes();
           }
-        })();
+        }
 
-        window.onload = function(){
+        // Esta función la llamaremos desde el padre cuando inyectemos el SVG
+        window.afterInject = function(){
+          autoFit();
           window.print();
           setTimeout(()=>window.close(), 300);
         };
-        window.onafterprint = function(){ setTimeout(()=>window.close(), 100); };
       <\/script>
     </body></html>
   `;
   w.document.write(html);
   w.document.close();
-  w.focus();
+
+  // 3) Inyectamos el SVG generado en el padre dentro del popup
+  //    y corremos auto-fit + print
+  const tryInject = ()=>{
+    const slot = w.document.getElementById('barcodeSlot');
+    if(slot){
+      slot.innerHTML = svgMarkup;           // ✅ Aquí pegamos el SVG ya generado
+      if(typeof w.afterInject === 'function') w.afterInject();
+    }else{
+      // si aún no está listo el DOM del popup, reintenta un momento después
+      setTimeout(tryInject, 50);
+    }
+  };
+  tryInject();
 });
 
 /* ===== Import/Export CSV ===== */
