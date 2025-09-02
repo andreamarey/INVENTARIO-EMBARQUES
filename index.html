@@ -717,28 +717,29 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
 
   const dateTxt = it.createdISO ? new Date(it.createdISO).toLocaleDateString() : "";
 
-  const w = window.open('', '', 'width=460,height=740');
+  const w = window.open('', '', 'width=820,height=520'); // vista previa apaisada
   const html = `
     <html><head><title>Etiqueta ${escapeHtml(it.code)}</title>
     <style>
-      @media print { html, body { margin:0; padding:0; } }
+      @media print {
+        @page { size: landscape; }   /* pedir horizontal al driver */
+        html, body { margin:0; padding:0; }
+      }
       body{
         font-family: Arial, sans-serif;
         margin: 0;
-        padding: 8mm;
+        padding: 8mm;                 /* borde interior */
         text-align: center;
         box-sizing: border-box;
         width: 100%; height: 100%;
       }
-      .wrap { width: 100%; height: 100%; }
-      .model{ font-weight:700; }
-      .fabric, .sku, .date { margin-top: 3mm; }
-      .model{ font-size: 36pt; line-height: 1.05; }
-      .fabric{ font-size: 20pt; }
-      .sku{ font-size: 20pt; }
-      .date{ font-size: 16pt; }
+      .wrap{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+      .model{ font-weight:700; font-size: 38pt; line-height: 1.05; }
+      .fabric{ font-size: 20pt; margin-top: 4mm; }
+      .sku{    font-size: 20pt; margin-top: 2mm; }
+      .date{   font-size: 16pt; margin-top: 2mm; }
       .model, .fabric, .sku, .date { word-break: break-word; overflow-wrap: anywhere; }
-      svg{ margin-top: 8mm; width: 92%; height: 30mm; }
+      svg{ margin-top: 8mm; width: 94%; height: 30mm; } /* barras más altas */
     </style>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
     </head><body>
@@ -751,9 +752,10 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
       </div>
       <script>
         try {
-          JsBarcode("#b","${escapeJs(it.code)}",{format:"CODE128", width:2, height:70, displayValue:true});
+          JsBarcode("#b","${escapeJs(it.code)}",{format:"CODE128", width:2.1, height:72, displayValue:true});
         } catch(e) {}
 
+        // Auto-fit: reduce poco a poco si no cabe
         (function autoFit(){
           const tModel = document.getElementById('tModel');
           const tFabric= document.getElementById('tFabric');
@@ -761,7 +763,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
           const tDate  = document.getElementById('tDate');
           const svg    = document.getElementById('b');
 
-          let fsModel = 36, fsSub = 20, fsDate = 16, svgH = 30; // iniciales (pt/mm)
+          let fsModel = 38, fsSub = 20, fsDate = 16, svgH = 30; // iniciales (pt/mm)
           const minModel = 24, minSub = 14, minDate = 12, minSvgH = 22;
 
           function applySizes(){
