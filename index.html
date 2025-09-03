@@ -63,6 +63,42 @@
   }
   #scanFlash.ok { background: #10b981; }  /* verde */
   #scanFlash.err{ background: #ef4444; }  /* rojo  */
+  
+  /* Inventario como tabla */
+.inv-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 14px;
+  background: #fff;
+}
+.inv-table th, .inv-table td {
+  border: 1px solid #e5e7eb;
+  padding: 8px;
+  text-align: left;
+}
+.inv-table th {
+  background: #f9fafb;
+  font-weight: 700;
+}
+.inv-table tbody tr:nth-child(even) {
+  background: #f3f4f6;
+}
+.inv-table td:last-child {
+  text-align: center;
+}
+
+/* Botón eliminar */
+.btn-del {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-del:hover { background: #dc2626; }
 </style>
 </head>
 <body>
@@ -133,8 +169,24 @@
       <button onclick="exportFilteredHistory()" class="btn-secondary">Exportar CSV (Historial Filtrado)</button>
     </div>
 
-    <h3 style="margin-top:14px">Totales (filtrados)</h3>
-    <ul id="inventory"></ul>
+  <h3 style="margin-top:14px">Totales (filtrados)</h3>
+
+<table class="inv-table">
+  <thead>
+    <tr>
+      <th>Modelo</th>
+      <th>Tela</th>
+      <th>SKU</th>
+      <th>Código</th>
+      <th style="text-align:right">Cantidad</th>
+      <th>Fecha</th>
+      <th style="text-align:center">Acciones</th>
+    </tr>
+  </thead>
+  <tbody id="inventoryTableBody">
+    <!-- Se llena dinámicamente -->
+  </tbody>
+</table>
 
     <h3 style="margin-top:14px">Historial (movimientos filtrados)</h3>
     <div id="history" class="muted">No hay movimientos.</div>
@@ -324,10 +376,10 @@ function inRange(iso){
   return true;
 }
 function renderInventory(){
-  const list = document.getElementById('inventory');
-  if(!list) return;
+  const tbody = document.getElementById('inventoryTableBody');
+  if(!tbody) return;
   const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
-  list.innerHTML="";
+  tbody.innerHTML = "";
 
   const data = items
     .filter(i=>{
@@ -338,15 +390,31 @@ function renderInventory(){
     })
     .sort((a,b)=>(b.createdISO||"").localeCompare(a.createdISO||""));
 
-  if(data.length===0){ list.innerHTML = '<li class="muted">No hay resultados con el filtro actual.</li>'; return; }
+  if(data.length===0){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="7" class="muted" style="text-align:center">No hay resultados con el filtro actual.</td>`;
+    tbody.appendChild(tr);
+    // Aun así refrescamos el historial filtrado
+    renderHistory();
+    return;
+  }
 
   data.forEach(i=>{
     const dateTxt = i.createdISO ? new Date(i.createdISO).toLocaleDateString() : "";
-    const li = document.createElement("li");
-    li.innerHTML = `${escapeHtml(i.nombre)} - Tela: ${escapeHtml(i.tela)} - SKU: ${escapeHtml(i.sku||'')} - Código: ${escapeHtml(i.code)} - Cantidad: ${i.cantidad} - Fecha: ${escapeHtml(dateTxt)}`;
-    list.appendChild(li);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(i.nombre)}</td>
+      <td>${escapeHtml(i.tela)}</td>
+      <td>${escapeHtml(i.sku||'')}</td>
+      <td>${escapeHtml(i.code)}</td>
+      <td style="text-align:right">${i.cantidad}</td>
+      <td>${escapeHtml(dateTxt)}</td>
+      <td><button class="btn-del" onclick="deleteItem('${escapeJs(i.code)}')">Eliminar</button></td>
+    `;
+    tbody.appendChild(tr);
   });
 
+  // Mantén el historial sincronizado con los mismos filtros
   renderHistory();
 }
 function renderHistory(){
@@ -1119,7 +1187,28 @@ function findPreviousSnapshotForMonth(yyyyMM){
 }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 function escapeJs(s){ return String(s).replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$').replace(/"/g,'\\"'); }
+function deleteItem(code){
+  const it = items.find(x=>x.code === code);
+  if(!it){ alert("Producto no encontrado."); return; }
 
+  // Confirmación
+  if(!confirm(`¿Eliminar "${it.nombre}" (${it.tela}) · SKU ${it.sku||''} · Código ${it.code} del inventario?\n` +
+              `También se eliminarán sus movimientos asociados.`)) return;
+
+  // Elimina el item
+  items = items.filter(x => x.code !== code);
+
+  // Si quieres conservar historial, comenta las 3 líneas siguientes
+  const before = moves.length;
+  moves = moves.filter(m => m.code !== code);
+  const removedMoves = before - moves.length;
+
+  saveAll();
+  renderInventory();
+  refreshLabelSelect(); // para que no aparezca más en sugerencias de etiquetas
+
+  alert(`Eliminado.\nCódigo: ${code}\nMovimientos eliminados: ${removedMoves}`);
+}
 /* ===== Escáner físico (USB/Bluetooth) como teclado ===== */
 (function enableKeyboardScanner(){
   let buffer = "";
