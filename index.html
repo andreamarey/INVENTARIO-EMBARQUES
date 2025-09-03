@@ -473,10 +473,9 @@ function renderInventory(){
   renderHistory();
 }
 function renderHistory(){
-  const box = document.getElementById('history');
-  if(!box) return;
+  const tbody = document.getElementById('historyTableBody');
+  if(!tbody) return;
 
-  // Filtro de texto y fechas (igual que antes)
   const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
   const rows = moves
     .filter(m=>{
@@ -487,12 +486,16 @@ function renderHistory(){
     })
     .sort((a,b)=>(b.dateISO||"").localeCompare(a.dateISO||""));
 
+  tbody.innerHTML = "";
+
   if(rows.length===0){
-    box.innerHTML = '<div class="muted">No hay movimientos para este filtro.</div>';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="9" class="muted" style="text-align:center">No hay movimientos para este filtro.</td>`;
+    tbody.appendChild(tr);
     return;
   }
 
-  // Asegura que todos los movimientos tengan id (por si faltó ensureMoveIds)
+  // Asegura IDs (por si faltó ensureMoveIds en la carga)
   let needSave = false;
   rows.forEach(m=>{
     if(!m.id){
@@ -502,71 +505,25 @@ function renderHistory(){
   });
   if(needSave) saveAll();
 
-  // Agrupar por día
-  const groups = new Map();
-  rows.forEach(r=>{
-    const day = (r.dateISO||"").slice(0,10);
-    if(!groups.has(day)) groups.set(day, []);
-    groups.get(day).push(r);
+  rows.forEach(m=>{
+    const d = m.dateISO ? new Date(m.dateISO) : new Date();
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${d.toLocaleDateString()}</td>
+      <td>${d.toLocaleTimeString()}</td>
+      <td>${escapeHtml(m.code)}</td>
+      <td>${escapeHtml(m.sku||'')}</td>
+      <td>${escapeHtml(m.nombre)}</td>
+      <td>${escapeHtml(m.tela)}</td>
+      <td style="text-align:right">${m.delta>0? '+'+m.delta : m.delta}</td>
+      <td>${escapeHtml(m.type)}</td>
+      <td>
+        <button class="btn-del-mov" onclick="deleteMove('${escapeJs(m.id)}')">Eliminar</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
   });
-
-  // Pintar tarjetas con botón Eliminar
-  let html = "";
-  for(const [day, list] of groups){
-    html += `<div class="group"><h3>📅 ${day.split('-').reverse().join('/')}</h3>`;
-    list.forEach(r=>{
-      const t = new Date(r.dateISO || Date.now());
-      const sign = r.delta>0? '+' : '';
-      html += `
-        <div class="mov">
-          <div><b>${escapeHtml(r.nombre)}</b> · ${escapeHtml(r.tela)} · SKU ${escapeHtml(r.sku||'')}</div>
-          <div class="muted">Código: ${escapeHtml(r.code)} · ${t.toLocaleTimeString()}</div>
-          <div class="kv">Δ ${sign}${r.delta} · ${escapeHtml(r.type)}</div>
-          <div style="margin-top:6px">
-            <button class="btn-danger btn-del-move" data-id="${escapeJs(r.id)}" style="font-size:12px; padding:6px 10px">
-              Eliminar
-            </button>
-          </div>
-        </div>`;
-    });
-    html += `</div>`;
-  }
-  box.innerHTML = html;
-
-  // Activar botones "Eliminar" — revierte cantidades y borra el movimiento
-  box.querySelectorAll('.btn-del-move').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const id = btn.getAttribute('data-id');
-      const m = moves.find(x=>x.id===id);
-      if(!m) { alert("Movimiento no encontrado."); return; }
-
-      const d = m.dateISO ? new Date(m.dateISO) : new Date();
-      const txt = `¿Eliminar este movimiento?\n` +
-                  `Fecha: ${d.toLocaleDateString()} ${d.toLocaleTimeString()}\n` +
-                  `Código: ${m.code} · SKU: ${m.sku||''}\n` +
-                  `Modelo: ${m.nombre} · Tela: ${m.tela}\n` +
-                  `Δ: ${m.delta} · Tipo: ${m.type}\n\n` +
-                  `Se revertirá la cantidad en inventario.`;
-      if(!confirm(txt)) return;
-
-      // Revertir cantidad en inventario
-      const it = items.find(i=>i.code===m.code);
-      if(it){
-        const newQty = (parseInt(it.cantidad)||0) - (parseInt(m.delta)||0); // restamos el delta del movimiento eliminado
-        it.cantidad = Math.max(0, newQty);
-      }
-
-      // Eliminar el movimiento
-      moves = moves.filter(x=>x.id!==id);
-
-      saveAll();
-      // Refrescar inventario e historial con filtros vigentes
-      renderInventory();
-      renderHistory();
-    });
-  });
-}
-function exportFilteredTotals(){
+}function exportFilteredTotals(){
   const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
   const rows = items
     .filter(i=>{
