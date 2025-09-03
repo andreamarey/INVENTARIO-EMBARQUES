@@ -593,14 +593,42 @@ function renderSnapshotsList(){
     box.innerHTML = '<div class="muted">No hay cortes guardados.</div>';
     return;
   }
+
   let html = "";
   const arr = [...snapshots].sort((a,b)=>(b.createdISO||"").localeCompare(a.createdISO||""));
   arr.forEach(s=>{
     const dateTxt = new Date(s.createdISO).toLocaleString();
-    const totalPzas = s.totals.reduce((acc,t)=>acc+(parseInt(t.cantidad)||0),0);
+
+    // Total piezas (final) — compatible con tu formato anterior
+    const totalPzasFinal = Array.isArray(s.totals)
+      ? s.totals.reduce((acc,t)=>acc+(parseInt(t.cantidad)||0),0)
+      : 0;
+
+    // >>> NUEVO: totales de entradas y salidas inferidas (si el snapshot trae "monthly")
+    const entradasTot = Array.isArray(s.monthly)
+      ? s.monthly.reduce((a,x)=>a+(Number(x.entradas)||0),0)
+      : 0;
+    const salidasInfTot = Array.isArray(s.monthly)
+      ? s.monthly.reduce((a,x)=>a+(Number(x.salidasInf)||0),0)
+      : 0;
+
+    // Etiqueta de mes (si existe)
+    const monthLabel = s.monthVal
+      ? new Date(s.monthVal + "-01T00:00:00Z").toLocaleDateString(undefined, {year:'numeric', month:'long'})
+      : null;
+
     html += `
       <div class="mov">
-        <div><b>${escapeHtml(s.label)}</b> · ${dateTxt} · Total piezas: ${totalPzas}</div>
+        <div>
+          <b>${escapeHtml(s.label)}</b>
+          ${monthLabel ? ` · <span class="muted">${escapeHtml(monthLabel)}</span>` : ""}
+          · ${dateTxt}
+          · <b>Total piezas (final): ${totalPzasFinal}</b>
+          ${Array.isArray(s.monthly)
+            ? ` · Entradas mes: <b>${entradasTot}</b> · Salidas inf.: <b>${salidasInfTot}</b>`
+            : ""
+          }
+        </div>
         <div style="margin-top:6px" class="row">
           <button class="btn-secondary" data-exp="${s.id}">Exportar CSV</button>
           <button class="btn-secondary" data-view="${s.id}">Ver detalle</button>
@@ -611,6 +639,7 @@ function renderSnapshotsList(){
   });
   box.innerHTML = html;
 
+  // Listeners
   box.querySelectorAll('[data-exp]').forEach(btn=>{
     btn.addEventListener('click', ()=> exportSnapshotCSV(btn.getAttribute('data-exp')));
   });
@@ -631,11 +660,50 @@ function renderSnapshotsList(){
 function exportSnapshotCSV(id){
   const s = snapshots.find(x=>x.id===id);
   if(!s){ alert("Corte no encontrado"); return; }
+
+  // Si el snapshot tiene desglose mensual, exportamos el formato nuevo:
+  if (Array.isArray(s.monthly) && s.monthly.length > 0){
+    const headers = ["Modelo","Tela","SKU","Código","Inicial","Entradas","Final","Salidas inferidas","Corte","Mes","Fecha de corte"];
+    const monthLabel = s.monthVal
+      ? new Date(s.monthVal + "-01T00:00:00Z").toLocaleDateString(undefined, {year:'numeric', month:'long'})
+      : "";
+    const rows = s.monthly.map(d=>[
+      d.nombre,
+      d.tela,
+      d.sku || "",
+      d.code,
+      Number(d.inicial)||0,
+      Number(d.entradas)||0,
+      Number(d.final)||0,
+      Number(d.salidasInf)||0,
+      s.label,
+      monthLabel,
+      new Date(s.createdISO).toLocaleString()
+    ]);
+    downloadCSV(
+      `corte_${(s.label||'').replace(/\s+/g,'_')}_mensual.csv`,
+      headers,
+      rows
+    );
+    return;
+  }
+
+  // Si no hay 'monthly', usamos el formato antiguo (compatibilidad):
   const headers = ["Modelo","Tela","SKU","Código","Cantidad","Corte","Fecha de corte"];
-  const rows = s.totals.map(t=>[
-    t.nombre, t.tela, t.sku||"", t.code, t.cantidad, s.label, new Date(s.createdISO).toLocaleString()
+  const rows = (Array.isArray(s.totals)? s.totals : []).map(t=>[
+    t.nombre,
+    t.tela,
+    t.sku || "",
+    t.code,
+    Number(t.cantidad)||0,
+    s.label,
+    new Date(s.createdISO).toLocaleString()
   ]);
-  downloadCSV(`corte_${s.label.replace(/\s+/g,'_')}.csv`, headers, rows);
+  downloadCSV(
+    `corte_${(s.label||'').replace(/\s+/g,'_')}.csv`,
+    headers,
+    rows
+  );
 }
 function viewSnapshot(id){
   const s = snapshots.find(x=>x.id===id);
