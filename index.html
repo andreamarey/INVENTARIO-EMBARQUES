@@ -1047,7 +1047,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   if(!selectedLabelCode){ alert("Primero busca y selecciona un producto de las sugerencias."); return; }
   const it = items.find(i=>i.code===selectedLabelCode);
   if(!it){ alert("Producto no encontrado"); return; }
-  const dateTxt = it.createdISO ? new Date(it.createdISO).toLocaleDateString() : "";
+const dateTxt = new Date().toLocaleDateString();
   const w = window.open('', '', 'width=420,height=360');
   const html = `
     <html><head><title>Etiqueta ${escapeHtml(it.code)}</title>
