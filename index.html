@@ -340,29 +340,19 @@ let selectedLabelCode = null; // Etiquetas (buscador)
     prefs.beep = p.beep!==undefined ? p.beep : true;
     prefs.vibrate = p.vibrate!==undefined ? p.vibrate : true;
     snapshots = JSON.parse(localStorage.getItem('snapshots_simple')||'[]');
-  }catch(e){ items=[]; moves=[]; kllCounter=1; prefs={beep:true, vibrate:true}; snapshots=[]; }
+  }catch(e){
+    items=[]; moves=[]; kllCounter=1; prefs={beep:true, vibrate:true}; snapshots=[];
+  }
+
   document.getElementById('prefBeep').checked = !!prefs.beep;
   document.getElementById('prefVibrate').checked = !!prefs.vibrate;
 
-    // Revertir cantidad del producto
-    const it = items.find(i=>i.code===m.code);
-    if(it){
-      const newQty = (parseInt(it.cantidad)||0) - (parseInt(m.delta)||0);
-      it.cantidad = Math.max(0, newQty);
-    }
-
-    // Borrar movimiento
-    moves = moves.filter(x=>x.id!==id);
-
-    saveAll();
-    renderInventory();   // esto vuelve a llamar renderHistory()
-  });
-})();
-
+  // Asegura IDs en movimientos ya existentes
   ensureMoveIds();
-  
+
+  // Pinta tablas iniciales
   renderInventory();
-  refreshLabelSelect(); // resetea buscador de etiquetas
+  refreshLabelSelect(); // buscador de etiquetas
 })();
 function saveAll(){
   localStorage.setItem('items_simple', JSON.stringify(items));
