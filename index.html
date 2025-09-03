@@ -143,11 +143,19 @@
   <!-- Conteo mensual -->
   <section id="conteo" class="card hidden">
     <h2>Conteo mensual</h2>
-    <div class="row">
-      <input id="countLabel" placeholder="Nombre del corte (ej. Agosto 2025)">
-      <button id="btnStartCount" class="btn-secondary">Iniciar conteo (cargar inventario actual)</button>
-      <button id="btnSaveCount">Guardar corte</button>
-    </div>
+ <div class="row">
+  <label style="flex:1">
+    Mes a reportar:
+    <input id="countMonth" type="month">
+  </label>
+  <input id="countLabel" placeholder="Nombre del corte (ej. Septiembre 2025)">
+  <button id="btnStartCount" class="btn-secondary">Iniciar conteo</button>
+  <button id="btnSaveCount">Guardar corte</button>
+</div>
+<div class="muted">
+  Al iniciar, se calculará: <b>Stock inicial</b> (del snapshot anterior), <b>Entradas del mes</b> (de tus movimientos) y podrás editar el <b>Stock final</b> para ese mes.
+  Las <b>salidas</b> se infieren como: (Inicial + Entradas) − Final.
+</div>
     <div class="muted">Ajusta las cantidades observadas en piso antes de guardar.</div>
     <div id="countEditor" style="margin-top:10px"></div>
     <hr style="margin:14px 0">
@@ -422,71 +430,159 @@ function exportFilteredHistory(){
 
 /* ===== Conteo mensual ===== */
 document.getElementById('btnStartCount').addEventListener('click', ()=>{
-  countBuffer = items.map(i=>({
-    code:i.code, sku:i.sku, nombre:i.nombre, tela:i.tela,
-    cantidad:i.cantidad
-  }));
-  renderCountEditor();
+  // 1) Mes objetivo
+  const monthEl = document.getElementById('countMonth');
+  const monthVal = (monthEl && monthEl.value) ? monthEl.value : getCurrentMonthValue(); // "YYYY-MM"
+  const {start, end, label: monthLabel} = getMonthRange(monthVal);
+
+  // 2) Snapshot anterior (stock inicial por código)
+  const prevSnap = findPreviousSnapshotForMonth(monthVal);
+  const inicioMap = new Map(); // code -> cantidad inicial
+  if (prevSnap && Array.isArray(prevSnap.totals)) {
+    prevSnap.totals.forEach(t=>{
+      inicioMap.set(t.code, Number(t.cantidad)||0);
+    });
+  }
+
+  // 3) Entradas del mes (solo deltas positivos) agrupadas por código
+  const entradasMap = new Map(); // code -> cantidad (+)
+  moves.forEach(m=>{
+    if(!m.dateISO) return;
+    const d = new Date(m.dateISO);
+    if (d >= start && d <= end && (Number(m.delta)||0) > 0) {
+      const cur = entradasMap.get(m.code)||0;
+      entradasMap.set(m.code, cur + (Number(m.delta)||0));
+    }
+  });
+
+  // 4) Construir buffer de conteo: unión de códigos (inicio ∪ entradas)
+  const unionCodes = new Set([...inicioMap.keys(), ...entradasMap.keys()]);
+  countBuffer = [];
+  unionCodes.forEach(code=>{
+    const it = items.find(i=>i.code===code) || moves.find(m=>m.code===code); // para datos descriptivos
+    const nombre = it?.nombre || '';
+    const tela   = it?.tela   || '';
+    const sku    = it?.sku    || '';
+    const ini    = inicioMap.get(code)   || 0;
+    const ent    = entradasMap.get(code) || 0;
+    const fin    = ini + ent; // valor inicial sugerido, editable
+    countBuffer.push({ code, sku, nombre, tela, inicial: ini, entradas: ent, final: fin });
+  });
+
+  // Guarda meta para el guardado
+  countBuffer._monthVal   = monthVal;
+  countBuffer._monthStart = start.toISOString();
+  countBuffer._monthEnd   = end.toISOString();
+  countBuffer._monthLabel = monthLabel;
+
+  // Si no hay registros, igual iniciamos vacío (para que puedas cargar manualmente)
+  if (countBuffer.length===0) {
+    // opcional: incluir productos actuales con final inicializado en 0
+  }
+
+  renderCountEditor(); // mostrará columnas: Inicial / Entradas / Final (editable) / Salidas inf.
 });
 document.getElementById('btnSaveCount').addEventListener('click', ()=>{
-  if(!countBuffer || countBuffer.length===0){ alert("Primero inicia un conteo."); return; }
-  const label = (document.getElementById('countLabel').value || "").trim();
-  if(!label){ alert("Pon un nombre al corte (ej. Agosto 2025)."); return; }
+  if(!countBuffer || countBuffer.length===0){
+    alert("Primero inicia un conteo del mes."); return;
+  }
+  // Etiqueta del corte
+  let label = (document.getElementById('countLabel').value || "").trim();
+  const monthLbl = countBuffer._monthLabel || '';
+  if(!label) label = monthLbl ? `Corte ${monthLbl}` : `Corte ${new Date().toLocaleDateString()}`;
+
+  // Estructura a guardar:
+  // - totals: FINAL por producto (lo que contaste físicamente al cierre)
+  // - meta por producto: inicial, entradas, final, salidas inf.
+  const details = countBuffer.map(r=>{
+    const inicial = Number(r.inicial)||0;
+    const entradas = Number(r.entradas)||0;
+    const final = Number(r.final)||0;
+    const salidasInf = inicial + entradas - final;
+    return {
+      code: r.code, sku: r.sku, nombre: r.nombre, tela: r.tela,
+      inicial, entradas, final, salidasInf
+    };
+  });
+
   const snap = {
     id: "snap_" + Date.now(),
     label,
+    monthVal: countBuffer._monthVal || null,       // "YYYY-MM"
+    monthStartISO: countBuffer._monthStart || null,
+    monthEndISO: countBuffer._monthEnd || null,
     createdISO: new Date().toISOString(),
-    totals: countBuffer.map(x=>({ ...x }))
+    // Para compatibilidad con lo que ya tenías:
+    totals: details.map(d=>({ code:d.code, sku:d.sku, nombre:d.nombre, tela:d.tela, cantidad:d.final })),
+    // Nuevo: guardamos también el desglose mensual para reportes
+    monthly: details
   };
+
   snapshots.push(snap);
   saveAll();
   renderSnapshotsList();
-  alert("Corte guardado.");
+  alert("Corte mensual guardado.");
 });
 function renderCountEditor(){
   const box = document.getElementById('countEditor');
   if(!box) return;
+
   if(!countBuffer || countBuffer.length===0){
-    box.innerHTML = '<div class="muted">No hay conteo iniciado. Pulsa "Iniciar conteo".</div>';
+    box.innerHTML = '<div class="muted">No hay datos para este mes. Inicia un conteo.</div>';
     return;
   }
+
+  const monthLbl = countBuffer._monthLabel || '';
   let html = `
-    <div class="muted">Edita las cantidades observadas. Solo afecta al corte, no al inventario actual.</div>
+    <div class="muted">Mes: <b>${monthLbl}</b>. Edita la columna <b>Final</b> según tu conteo físico. Las <i>salidas inf.</i> se calculan como (Inicial + Entradas − Final).</div>
     <div style="overflow:auto">
     <table style="width:100%; border-collapse:collapse; margin-top:8px">
       <thead>
         <tr>
-          <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:6px">Modelo</th>
-          <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:6px">Tela</th>
-          <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:6px">SKU</th>
-          <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:6px">Código</th>
-          <th style="text-align:right; border-bottom:1px solid #e5e7eb; padding:6px">Cantidad</th>
+          <th style="text-align:left;  border-bottom:1px solid #e5e7eb; padding:6px">Modelo</th>
+          <th style="text-align:left;  border-bottom:1px solid #e5e7eb; padding:6px">Tela</th>
+          <th style="text-align:left;  border-bottom:1px solid #e5e7eb; padding:6px">SKU</th>
+          <th style="text-align:left;  border-bottom:1px solid #e5e7eb; padding:6px">Código</th>
+          <th style="text-align:right; border-bottom:1px solid #e5e7eb; padding:6px">Inicial</th>
+          <th style="text-align:right; border-bottom:1px solid #e5e7eb; padding:6px">Entradas</th>
+          <th style="text-align:right; border-bottom:1px solid #e5e7eb; padding:6px">Final</th>
+          <th style="text-align:right; border-bottom:1px solid #e5e7eb; padding:6px">Salidas inf.</th>
         </tr>
       </thead>
       <tbody>
   `;
+
   countBuffer.forEach((r, idx)=>{
+    const salInf = (Number(r.inicial)||0) + (Number(r.entradas)||0) - (Number(r.final)||0);
     html += `
       <tr>
         <td style="padding:6px">${escapeHtml(r.nombre)}</td>
         <td style="padding:6px">${escapeHtml(r.tela)}</td>
         <td style="padding:6px">${escapeHtml(r.sku||'')}</td>
         <td style="padding:6px">${escapeHtml(r.code)}</td>
+        <td style="padding:6px; text-align:right">${Number(r.inicial)||0}</td>
+        <td style="padding:6px; text-align:right">${Number(r.entradas)||0}</td>
         <td style="padding:6px; text-align:right">
-          <input type="number" min="0" value="${r.cantidad}" data-idx="${idx}" style="width:100px; text-align:right">
+          <input type="number" min="0" value="${Number(r.final)||0}" data-idx="${idx}" style="width:100px; text-align:right">
         </td>
+        <td style="padding:6px; text-align:right" id="sal_${idx}">${salInf}</td>
       </tr>
     `;
   });
+
   html += `</tbody></table></div>`;
   box.innerHTML = html;
 
+  // Listeners para recalcular salidas inferidas al editar "final"
   box.querySelectorAll('input[type="number"]').forEach(inp=>{
     inp.addEventListener('input', ()=>{
       const i = parseInt(inp.getAttribute('data-idx'));
       let v = parseInt(inp.value||"0");
       if(Number.isNaN(v) || v<0) v = 0;
-      countBuffer[i].cantidad = v;
+      countBuffer[i].final = v;
+      const sInf = (Number(countBuffer[i].inicial)||0) + (Number(countBuffer[i].entradas)||0) - v;
+      const cell = document.getElementById('sal_'+i);
+      if(cell) cell.textContent = sInf;
     });
   });
 }
@@ -918,6 +1014,40 @@ function splitCSVLine(line){
     else{ cur+=ch; }
   }
   res.push(cur); return res;
+}
+// Devuelve {start, end, label} para un "YYYY-MM"
+function getMonthRange(yyyyMM){
+  try{
+    const [Y,M] = yyyyMM.split('-').map(x=>parseInt(x,10));
+    const start = new Date(Date.UTC(Y, M-1, 1, 0,0,0,0));
+    const end   = new Date(Date.UTC(Y, M, 0, 23,59,59,999)); // último día del mes
+    const label = new Date(Date.UTC(Y, M-1, 1)).toLocaleDateString(undefined, {year:'numeric', month:'long'});
+    return {start, end, label};
+  }catch(e){
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth()+1).padStart(2,'0');
+    return getMonthRange(`${yyyy}-${mm}`);
+  }
+}
+
+// Obtiene el valor "YYYY-MM" del mes actual
+function getCurrentMonthValue(){
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth()+1).padStart(2,'0');
+  return `${yyyy}-${mm}`;
+}
+
+// Busca el snapshot más cercano anterior a "YYYY-MM"
+function findPreviousSnapshotForMonth(yyyyMM){
+  if(!snapshots || snapshots.length===0) return null;
+  // Selecciona entre snapshots que tengan monthVal y sean < yyyyMM
+  const prevs = snapshots.filter(s=> s.monthVal && s.monthVal < yyyyMM);
+  if(prevs.length===0) return null;
+  // El más reciente de los anteriores
+  prevs.sort((a,b)=> (b.monthVal).localeCompare(a.monthVal));
+  return prevs[0];
 }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 function escapeJs(s){ return String(s).replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$').replace(/"/g,'\\"'); }
