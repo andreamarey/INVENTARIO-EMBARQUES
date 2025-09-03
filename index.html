@@ -343,27 +343,6 @@ let selectedLabelCode = null; // Etiquetas (buscador)
   }catch(e){ items=[]; moves=[]; kllCounter=1; prefs={beep:true, vibrate:true}; snapshots=[]; }
   document.getElementById('prefBeep').checked = !!prefs.beep;
   document.getElementById('prefVibrate').checked = !!prefs.vibrate;
-  
-  // Delegación de clic en la tabla de movimientos
-(function bindHistoryDelete(){
-  const tbody = document.getElementById('historyTableBody');
-  if(!tbody) return;
-  tbody.addEventListener('click', (ev)=>{
-    const btn = ev.target.closest('.btn-del-mov');
-    if(!btn) return;
-
-    const id = btn.getAttribute('data-id');
-    const m = moves.find(x=>x.id===id);
-    if(!m){ alert("Movimiento no encontrado."); return; }
-
-    const d = m.dateISO ? new Date(m.dateISO) : new Date();
-    const txt = `¿Eliminar este movimiento?\n` +
-                `Fecha: ${d.toLocaleDateString()} ${d.toLocaleTimeString()}\n` +
-                `Código: ${m.code} · SKU: ${m.sku||''}\n` +
-                `Modelo: ${m.nombre} · Tela: ${m.tela}\n` +
-                `Δ: ${m.delta} · Tipo: ${m.type}\n\n` +
-                `Se revertirá la cantidad en inventario.`;
-    if(!confirm(txt)) return;
 
     // Revertir cantidad del producto
     const it = items.find(i=>i.code===m.code);
@@ -1299,17 +1278,46 @@ function ensureMoveIds(){
   });
   if(changed) saveAll();
 }
+// --- ELIMINAR UN PRODUCTO COMPLETO (y todos sus movimientos asociados) ---
 function deleteItem(code){
-  const it = items.find(x=>x.code === code);
-  if(!it){ alert("Producto no encontrado."); return; }
-  function deleteMove(moveId){
+  const it = items.find(x => x.code === code);
+  if(!it){ 
+    alert("Producto no encontrado."); 
+    return; 
+  }
+
+  // Confirmación antes de borrar
+  if(!confirm(
+    `¿Eliminar "${it.nombre}" (${it.tela}) · SKU ${it.sku||''} · Código ${it.code} del inventario?\n` +
+    `También se eliminarán todos sus movimientos asociados.`
+  )) return;
+
+  // Quitar el producto del inventario
+  items = items.filter(x => x.code !== code);
+
+  // Quitar todos los movimientos de ese producto
+  const antes = moves.length;
+  moves = moves.filter(m => m.code !== code);
+  const quitados = antes - moves.length;
+
+  // Guardar cambios
+  saveAll();
+
+  // Refrescar vistas
+  renderInventory();
+  refreshLabelSelect();
+
+  // Mensaje final
+  alert(`Eliminado.\nCódigo: ${code}\nMovimientos eliminados: ${quitados}`);
+}
+function deleteMove(moveId){
   const idx = moves.findIndex(m=>m.id===moveId);
   if(idx===-1){ alert("Movimiento no encontrado."); return; }
 
   const m = moves[idx];
   const it = items.find(i=>i.code===m.code);
 
-  // Texto para confirmar
+  // Confirmación
   const d = m.dateISO ? new Date(m.dateISO) : new Date();
   const txt = `¿Eliminar este movimiento?\n` +
               `Fecha: ${d.toLocaleDateString()} ${d.toLocaleTimeString()}\n` +
@@ -1319,9 +1327,9 @@ function deleteItem(code){
               `Se revertirá la cantidad en inventario.`;
   if(!confirm(txt)) return;
 
-  // Revertir cantidad
+  // Revertir cantidad del producto
   if(it){
-    const newQty = (parseInt(it.cantidad)||0) - (parseInt(m.delta)||0); // restamos delta
+    const newQty = (parseInt(it.cantidad)||0) - (parseInt(m.delta)||0);
     it.cantidad = Math.max(0, newQty);
   }
 
@@ -1329,27 +1337,9 @@ function deleteItem(code){
   moves.splice(idx,1);
 
   saveAll();
-  renderInventory(); // también refresca historial
+  renderInventory(); // esto a su vez llama renderHistory()
 }
 
-  // Confirmación
-  if(!confirm(`¿Eliminar "${it.nombre}" (${it.tela}) · SKU ${it.sku||''} · Código ${it.code} del inventario?\n` +
-              `También se eliminarán sus movimientos asociados.`)) return;
-
-  // Elimina el item
-  items = items.filter(x => x.code !== code);
-
-  // Si quieres conservar historial, comenta las 3 líneas siguientes
-  const before = moves.length;
-  moves = moves.filter(m => m.code !== code);
-  const removedMoves = before - moves.length;
-
-  saveAll();
-  renderInventory();
-  refreshLabelSelect(); // para que no aparezca más en sugerencias de etiquetas
-
-  alert(`Eliminado.\nCódigo: ${code}\nMovimientos eliminados: ${removedMoves}`);
-}
 /* ===== Escáner físico (USB/Bluetooth) como teclado ===== */
 (function enableKeyboardScanner(){
   let buffer = "";
