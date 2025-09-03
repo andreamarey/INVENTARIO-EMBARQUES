@@ -99,6 +99,41 @@
   cursor: pointer;
 }
 .btn-del:hover { background: #dc2626; }
+
+/* Movimientos como tabla */
+.mov-table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+  font-size:14px;
+  background:#fff;
+}
+.mov-table th, .mov-table td{
+  border:1px solid #e5e7eb;
+  padding:8px;
+  text-align:left;
+}
+.mov-table th{
+  background:#f9fafb;
+  font-weight:700;
+}
+.mov-table tbody tr:nth-child(even){
+  background:#f3f4f6;
+}
+.mov-table td:nth-last-child(3){ text-align:right; } /* columna Δ */
+.mov-table td:last-child{ text-align:center; }
+
+/* Botón eliminar movimiento (reutiliza .btn-del) */
+.btn-del-mov{ /* opcional si quieres un tono distinto */
+  background:#ef4444;
+  color:#fff;
+  border:none;
+  padding:6px 10px;
+  border-radius:8px;
+  font-size:12px;
+  cursor:pointer;
+}
+.btn-del-mov:hover{ background:#dc2626; }
 </style>
 </head>
 <body>
@@ -188,8 +223,25 @@
   </tbody>
 </table>
 
-    <h3 style="margin-top:14px">Historial (movimientos filtrados)</h3>
-    <div id="history" class="muted">No hay movimientos.</div>
+   <h3 style="margin-top:14px">Historial (movimientos filtrados)</h3>
+<table class="mov-table">
+  <thead>
+    <tr>
+      <th>Fecha</th>
+      <th>Hora</th>
+      <th>Código</th>
+      <th>SKU</th>
+      <th>Modelo</th>
+      <th>Tela</th>
+      <th style="text-align:right">Δ</th>
+      <th>Tipo</th>
+      <th style="text-align:center">Acciones</th>
+    </tr>
+  </thead>
+  <tbody id="historyTableBody">
+    <!-- Se llena dinámicamente -->
+  </tbody>
+</table>
   </section>
 
   <!-- Conteo mensual -->
@@ -291,6 +343,9 @@ let selectedLabelCode = null; // Etiquetas (buscador)
   }catch(e){ items=[]; moves=[]; kllCounter=1; prefs={beep:true, vibrate:true}; snapshots=[]; }
   document.getElementById('prefBeep').checked = !!prefs.beep;
   document.getElementById('prefVibrate').checked = !!prefs.vibrate;
+  
+  ensureMoveIds();
+  
   renderInventory();
   refreshLabelSelect(); // resetea buscador de etiquetas
 })();
@@ -340,13 +395,13 @@ document.getElementById('btnGenerate').addEventListener('click', ()=>{
 
   if(existing){
     existing.cantidad += 1;
-    moves.push({dateISO: nowISO, code: existing.code, sku: existing.sku, nombre: existing.nombre, tela: existing.tela, delta:+1, type:'register'});
+    moves.push({id: genId(),dateISO: nowISO, code: existing.code, sku: existing.sku, nombre: existing.nombre, tela: existing.tela, delta:+1, type:'register'});
     alert(`Se sumó +1 a ${existing.nombre} (${existing.tela}) · SKU ${existing.sku}\nCódigo: ${existing.code}`);
   }else{
     const code = "KLL-" + String(kllCounter).padStart(4,"0");
     kllCounter++;
     items.push({code, sku, nombre, tela, cantidad:1, createdISO:nowISO});
-    moves.push({dateISO: nowISO, code, sku, nombre, tela, delta:+1, type:'register'});
+    moves.push({id: genId(),dateISO: nowISO, code, sku, nombre, tela, delta:+1, type:'register'});
     alert(`Nuevo producto creado con código ${code}`);
   }
   saveAll();
@@ -420,8 +475,9 @@ function renderInventory(){
 function renderHistory(){
   const box = document.getElementById('history');
   if(!box) return;
-  const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
 
+  // Filtro de texto y fechas (igual que antes)
+  const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
   const rows = moves
     .filter(m=>{
       const okQ = !q || m.nombre.toLowerCase().includes(q) || m.tela.toLowerCase().includes(q) ||
@@ -431,8 +487,22 @@ function renderHistory(){
     })
     .sort((a,b)=>(b.dateISO||"").localeCompare(a.dateISO||""));
 
-  if(rows.length===0){ box.innerHTML = '<div class="muted">No hay movimientos para este filtro.</div>'; return; }
+  if(rows.length===0){
+    box.innerHTML = '<div class="muted">No hay movimientos para este filtro.</div>';
+    return;
+  }
 
+  // Asegura que todos los movimientos tengan id (por si faltó ensureMoveIds)
+  let needSave = false;
+  rows.forEach(m=>{
+    if(!m.id){
+      m.id = (typeof genId === 'function' ? genId() : ('mv_'+Date.now()+Math.random().toString(36).slice(2,7)));
+      needSave = true;
+    }
+  });
+  if(needSave) saveAll();
+
+  // Agrupar por día
   const groups = new Map();
   rows.forEach(r=>{
     const day = (r.dateISO||"").slice(0,10);
@@ -440,22 +510,61 @@ function renderHistory(){
     groups.get(day).push(r);
   });
 
+  // Pintar tarjetas con botón Eliminar
   let html = "";
   for(const [day, list] of groups){
     html += `<div class="group"><h3>📅 ${day.split('-').reverse().join('/')}</h3>`;
     list.forEach(r=>{
-      const t = new Date(r.dateISO);
+      const t = new Date(r.dateISO || Date.now());
       const sign = r.delta>0? '+' : '';
       html += `
         <div class="mov">
           <div><b>${escapeHtml(r.nombre)}</b> · ${escapeHtml(r.tela)} · SKU ${escapeHtml(r.sku||'')}</div>
           <div class="muted">Código: ${escapeHtml(r.code)} · ${t.toLocaleTimeString()}</div>
-          <div class="kv">Δ ${sign}${r.delta} · ${r.type}</div>
+          <div class="kv">Δ ${sign}${r.delta} · ${escapeHtml(r.type)}</div>
+          <div style="margin-top:6px">
+            <button class="btn-danger btn-del-move" data-id="${escapeJs(r.id)}" style="font-size:12px; padding:6px 10px">
+              Eliminar
+            </button>
+          </div>
         </div>`;
     });
     html += `</div>`;
   }
   box.innerHTML = html;
+
+  // Activar botones "Eliminar" — revierte cantidades y borra el movimiento
+  box.querySelectorAll('.btn-del-move').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.getAttribute('data-id');
+      const m = moves.find(x=>x.id===id);
+      if(!m) { alert("Movimiento no encontrado."); return; }
+
+      const d = m.dateISO ? new Date(m.dateISO) : new Date();
+      const txt = `¿Eliminar este movimiento?\n` +
+                  `Fecha: ${d.toLocaleDateString()} ${d.toLocaleTimeString()}\n` +
+                  `Código: ${m.code} · SKU: ${m.sku||''}\n` +
+                  `Modelo: ${m.nombre} · Tela: ${m.tela}\n` +
+                  `Δ: ${m.delta} · Tipo: ${m.type}\n\n` +
+                  `Se revertirá la cantidad en inventario.`;
+      if(!confirm(txt)) return;
+
+      // Revertir cantidad en inventario
+      const it = items.find(i=>i.code===m.code);
+      if(it){
+        const newQty = (parseInt(it.cantidad)||0) - (parseInt(m.delta)||0); // restamos el delta del movimiento eliminado
+        it.cantidad = Math.max(0, newQty);
+      }
+
+      // Eliminar el movimiento
+      moves = moves.filter(x=>x.id!==id);
+
+      saveAll();
+      // Refrescar inventario e historial con filtros vigentes
+      renderInventory();
+      renderHistory();
+    });
+  });
 }
 function exportFilteredTotals(){
   const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
@@ -865,7 +974,7 @@ function processScan(text){
   if(item){
     item.cantidad += 1;
     const nowISO = new Date().toISOString();
-    moves.push({dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+1, type:'scan'});
+    moves.push({id: genId(),dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+1, type:'scan'});
 
     if(prefs.beep) beep();
     if(prefs.vibrate && navigator.vibrate) navigator.vibrate(80);
@@ -1016,7 +1125,7 @@ document.getElementById('btnPlus1').addEventListener('click', ()=>{
   if(!item) return;
   item.cantidad += 1;
   const nowISO = new Date().toISOString();
-  moves.push({dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+1, type:'scan'});
+  moves.push({id: genId(),dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+1, type:'scan'});
   if(prefs.beep) beep();
   if(prefs.vibrate && navigator.vibrate) navigator.vibrate(80);
   flashScan(true, `+1 ${item.nombre} (${item.tela})`);
@@ -1031,7 +1140,7 @@ document.getElementById('btnPlusN').addEventListener('click', ()=>{
   if(!item) return;
   item.cantidad += n;
   const nowISO = new Date().toISOString();
-  moves.push({dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+n, type:'scan'});
+  moves.push({id: genId(),dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+n, type:'scan'});
   if(prefs.beep) beep();
   if(prefs.vibrate && navigator.vibrate) navigator.vibrate([60,30,60]);
   flashScan(true, `+${n} ${item.nombre} (${item.tela})`);
@@ -1187,9 +1296,48 @@ function findPreviousSnapshotForMonth(yyyyMM){
 }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 function escapeJs(s){ return String(s).replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$').replace(/"/g,'\\"'); }
+function genId(prefix='mv_'){
+  return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+}
+function ensureMoveIds(){
+  let changed = false;
+  moves.forEach(m=>{
+    if(!m.id){ m.id = genId(); changed = true; }
+  });
+  if(changed) saveAll();
+}
 function deleteItem(code){
   const it = items.find(x=>x.code === code);
   if(!it){ alert("Producto no encontrado."); return; }
+  function deleteMove(moveId){
+  const idx = moves.findIndex(m=>m.id===moveId);
+  if(idx===-1){ alert("Movimiento no encontrado."); return; }
+
+  const m = moves[idx];
+  const it = items.find(i=>i.code===m.code);
+
+  // Texto para confirmar
+  const d = m.dateISO ? new Date(m.dateISO) : new Date();
+  const txt = `¿Eliminar este movimiento?\n` +
+              `Fecha: ${d.toLocaleDateString()} ${d.toLocaleTimeString()}\n` +
+              `Código: ${m.code} · SKU: ${m.sku||''}\n` +
+              `Modelo: ${m.nombre} · Tela: ${m.tela}\n` +
+              `Δ: ${m.delta} · Tipo: ${m.type}\n\n` +
+              `Se revertirá la cantidad en inventario.`;
+  if(!confirm(txt)) return;
+
+  // Revertir cantidad
+  if(it){
+    const newQty = (parseInt(it.cantidad)||0) - (parseInt(m.delta)||0); // restamos delta
+    it.cantidad = Math.max(0, newQty);
+  }
+
+  // Quitar movimiento
+  moves.splice(idx,1);
+
+  saveAll();
+  renderInventory(); // también refresca historial
+}
 
   // Confirmación
   if(!confirm(`¿Eliminar "${it.nombre}" (${it.tela}) · SKU ${it.sku||''} · Código ${it.code} del inventario?\n` +
