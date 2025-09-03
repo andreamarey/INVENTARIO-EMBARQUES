@@ -344,6 +344,42 @@ let selectedLabelCode = null; // Etiquetas (buscador)
   document.getElementById('prefBeep').checked = !!prefs.beep;
   document.getElementById('prefVibrate').checked = !!prefs.vibrate;
   
+  // Delegación de clic en la tabla de movimientos
+(function bindHistoryDelete(){
+  const tbody = document.getElementById('historyTableBody');
+  if(!tbody) return;
+  tbody.addEventListener('click', (ev)=>{
+    const btn = ev.target.closest('.btn-del-mov');
+    if(!btn) return;
+
+    const id = btn.getAttribute('data-id');
+    const m = moves.find(x=>x.id===id);
+    if(!m){ alert("Movimiento no encontrado."); return; }
+
+    const d = m.dateISO ? new Date(m.dateISO) : new Date();
+    const txt = `¿Eliminar este movimiento?\n` +
+                `Fecha: ${d.toLocaleDateString()} ${d.toLocaleTimeString()}\n` +
+                `Código: ${m.code} · SKU: ${m.sku||''}\n` +
+                `Modelo: ${m.nombre} · Tela: ${m.tela}\n` +
+                `Δ: ${m.delta} · Tipo: ${m.type}\n\n` +
+                `Se revertirá la cantidad en inventario.`;
+    if(!confirm(txt)) return;
+
+    // Revertir cantidad del producto
+    const it = items.find(i=>i.code===m.code);
+    if(it){
+      const newQty = (parseInt(it.cantidad)||0) - (parseInt(m.delta)||0);
+      it.cantidad = Math.max(0, newQty);
+    }
+
+    // Borrar movimiento
+    moves = moves.filter(x=>x.id!==id);
+
+    saveAll();
+    renderInventory();   // esto vuelve a llamar renderHistory()
+  });
+})();
+
   ensureMoveIds();
   
   renderInventory();
