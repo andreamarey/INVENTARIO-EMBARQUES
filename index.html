@@ -34,7 +34,7 @@
   .muted { color:var(--muted); font-size:.9rem; }
   ul{padding-left:18px; margin:6px 0}
 
-  /* Etiqueta preview */
+  /* Etiqueta preview (pantalla) */
   .label-preview { border:1px solid #000; padding:12px; width:320px; background:#fff; border-radius:6px; }
   .model { font-size:20px; font-weight:700; }
   .fabric, .sku, .date { font-size:14px; margin-top:2px; }
@@ -45,6 +45,24 @@
   .mov{padding:6px 8px; border:1px solid #e5e7eb; border-radius:8px; margin:4px 0; background:#fff}
   .kv{font-family:ui-monospace, Menlo, Consolas, monospace; font-size:.9rem}
   table th, table td { font-size:14px; }
+
+  /* ===== Indicador de escaneo (flash) ===== */
+  #scanFlash{
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 9999;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-weight: 700;
+    color: #fff;
+    display: none;
+    opacity: 0;
+    transition: opacity .25s ease;
+    box-shadow: 0 8px 20px rgba(0,0,0,.15);
+  }
+  #scanFlash.ok { background: #10b981; }  /* verde */
+  #scanFlash.err{ background: #ef4444; }  /* rojo  */
 </style>
 </head>
 <body>
@@ -186,6 +204,9 @@
   </section>
 
 </div>
+
+<!-- Indicador visual de escaneo -->
+<div id="scanFlash" aria-live="polite"></div>
 
 <script>
 /* ===== Estado & Persistencia ===== */
@@ -532,7 +553,7 @@ function viewSnapshot(id){
   alert(txt);
 }
 
-/* ===== Escáner (Html5Qrcode) ===== */
+/* ===== Escáner (Html5Qrcode - cámara) ===== */
 let h5 = null;
 let currentCamId = null;
 let lastText = "";
@@ -585,59 +606,67 @@ function stopScanner(){
 }
 function onScanFailure(){ /* silencioso */ }
 function onScanSuccess(text){
+  // Evita dobles lecturas por cámara
   if(text===lastText) return;
   lastText = text;
   if(h5 && h5.pause) h5.pause(true);
   clearTimeout(resumeTimer);
   resumeTimer = setTimeout(()=>{ if(h5 && h5.resume) h5.resume(); lastText=""; }, 1200);
 
-  document.getElementById('scanCode').value = text;
-  const item = items.find(i=>i.code===text || (i.sku||"").toLowerCase()===text.toLowerCase());
+  // Reutiliza la misma lógica que el escáner físico
+  processScan(text);
+}
+
+/* ===== Lógica común para cámara + escáner físico ===== */
+function processScan(text){
+  const codeText = String(text || "").trim();
+  if(!codeText) return;
+
+  // Reflejar el texto detectado en la pestaña Escanear (si está abierta)
+  const codeInput = document.getElementById('scanCode');
+  if(codeInput) codeInput.value = codeText;
+
+  // Buscar por Código KLL exacto o por SKU (insensible a mayúsculas)
+  const item = items.find(i=> i.code === codeText ||
+                              (i.sku||"").toLowerCase() === codeText.toLowerCase());
+
   if(item){
     item.cantidad += 1;
     const nowISO = new Date().toISOString();
     moves.push({dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+1, type:'scan'});
+
     if(prefs.beep) beep();
     if(prefs.vibrate && navigator.vibrate) navigator.vibrate(80);
-    document.getElementById('scanName').value = item.nombre;
-    document.getElementById('scanFabric').value = item.tela;
-    document.getElementById('scanSKU').value = item.sku || "";
-    document.getElementById('scanQty').value = item.cantidad;
-    saveAll(); renderInventory();
+
+    // Indicador visual de éxito
+    flashScan(true, `+1 ${item.nombre} (${item.tela})`);
+
+    // Actualiza campos de la pestaña Escanear (si visible)
+    const n = document.getElementById('scanName');
+    const f = document.getElementById('scanFabric');
+    const s = document.getElementById('scanSKU');
+    const q = document.getElementById('scanQty');
+    if(n) n.value = item.nombre;
+    if(f) f.value = item.tela;
+    if(s) s.value = item.sku || "";
+    if(q) q.value = item.cantidad;
+
+    saveAll();
+    renderInventory();
   }else{
-    document.getElementById('scanName').value = "No registrado";
-    document.getElementById('scanFabric').value = "";
-    document.getElementById('scanSKU').value = "";
-    document.getElementById('scanQty').value = "";
+    // Indicador visual de error / no encontrado
+    flashScan(false, 'Código no registrado');
+
+    const n = document.getElementById('scanName');
+    const f = document.getElementById('scanFabric');
+    const s = document.getElementById('scanSKU');
+    const q = document.getElementById('scanQty');
+    if(n) n.value = "No registrado";
+    if(f) f.value = "";
+    if(s) s.value = "";
+    if(q) q.value = "";
   }
 }
-document.getElementById('btnPlus1').addEventListener('click', ()=>{
-  const code = document.getElementById('scanCode').value.trim();
-  if(!code) return;
-  const item = items.find(i=>i.code===code || (i.sku||"").toLowerCase()===code.toLowerCase());
-  if(!item) return;
-  item.cantidad += 1;
-  const nowISO = new Date().toISOString();
-  moves.push({dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+1, type:'scan'});
-  if(prefs.beep) beep();
-  if(prefs.vibrate && navigator.vibrate) navigator.vibrate(80);
-  saveAll(); renderInventory();
-  document.getElementById('scanQty').value = item.cantidad;
-});
-document.getElementById('btnPlusN').addEventListener('click', ()=>{
-  const n = parseInt(document.getElementById('plusN').value||"0");
-  const code = document.getElementById('scanCode').value.trim();
-  if(!n || !code) return;
-  const item = items.find(i=>i.code===code || (i.sku||"").toLowerCase()===code.toLowerCase());
-  if(!item) return;
-  item.cantidad += n;
-  const nowISO = new Date().toISOString();
-  moves.push({dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+n, type:'scan'});
-  if(prefs.beep) beep();
-  if(prefs.vibrate && navigator.vibrate) navigator.vibrate([60,30,60]);
-  saveAll(); renderInventory();
-  document.getElementById('scanQty').value = item.cantidad;
-});
 
 /* ===== Preferencias ===== */
 document.getElementById('prefBeep').addEventListener('change', (e)=>{ prefs.beep = e.target.checked; saveAll(); });
@@ -709,31 +738,23 @@ function showPreview(){
   wrap.appendChild(div);
   try{ JsBarcode("#barcodePrev", it.code, {format:"CODE128", width:2, height:60, displayValue:true}); }catch(e){}
 }
+
+/* ===== Impresión de etiqueta ===== */
 document.getElementById('btnPrint').addEventListener('click', ()=>{
   if(!selectedLabelCode){ alert("Primero busca y selecciona un producto de las sugerencias."); return; }
   const it = items.find(i=>i.code===selectedLabelCode);
   if(!it){ alert("Producto no encontrado"); return; }
-
   const dateTxt = it.createdISO ? new Date(it.createdISO).toLocaleDateString() : "";
-
-  const w = window.open('', '', 'width=480,height=760');
+  const w = window.open('', '', 'width=420,height=360');
   const html = `
     <html><head><title>Etiqueta ${escapeHtml(it.code)}</title>
     <style>
-      @media print { html, body { margin:0; padding:0; } }
-      body{
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 8mm;            /* margen interior de la etiqueta */
-        text-align: center;
-        box-sizing: border-box;
-      }
-      .model{ font-size: 36pt; font-weight:700; line-height:1.05; }
-      .fabric{ font-size: 20pt; margin-top: 6mm; }
-      .sku{    font-size: 20pt; margin-top: 4mm; }
-      .date{   font-size: 16pt; margin-top: 4mm; }
-      /* código de barras grande */
-      svg{ margin-top: 10mm; width: 95%; height: 35mm; }
+      body{font-family:Arial, sans-serif; margin:0; padding:16px; text-align:center}
+      .model{font-size:20px; font-weight:700}
+      .fabric{font-size:14px; margin-top:2px}
+      .sku{font-size:14px; margin-top:2px}
+      .date{font-size:14px; margin-top:2px}
+      svg{margin-top:10px}
     </style>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
     </head><body>
@@ -743,15 +764,10 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
       <div class="date">${escapeHtml(dateTxt)}</div>
       <svg id="b"></svg>
       <script>
-        try {
-          JsBarcode("#b","${escapeJs(it.code)}",{
-            format:"CODE128",
-            width:3,       // más ancho (antes era 2)
-            height:90,     // más alto (antes era 60)
-            displayValue:true
-          });
+        try{
+          JsBarcode("#b","${escapeJs(it.code)}",{format:"CODE128",width:2,height:60,displayValue:true});
         }catch(e){}
-        window.onload=function(){ window.print(); }
+        window.onload=function(){window.print();}
       <\/script>
     </body></html>
   `;
@@ -759,83 +775,41 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   w.document.close();
   w.focus();
 });
-// Enter = seleccionar la primera sugerencia (protegido)
-const _labelSearchEl = document.getElementById('labelSearch');
-if (_labelSearchEl) {
-  _labelSearchEl.addEventListener('keydown', (e)=>{
-    if(e.key === 'Enter'){
-      e.preventDefault();
-      const first = document.querySelector('#labelSuggestions li');
-      if(first) first.click();
-    }
-  });
-}
 
-/* ===== Import/Export CSV ===== */
-document.getElementById('btnExportTotals').addEventListener('click', ()=>{
-  if(items.length===0){ alert("No hay datos"); return; }
-  const headers = ["Modelo","Tela","SKU","Código","Cantidad","Fecha Alta"];
-  const rows = items.map(i=>[
-    i.nombre, i.tela, i.sku||"", i.code, i.cantidad,
-    i.createdISO ? new Date(i.createdISO).toLocaleDateString() : ""
-  ]);
-  downloadCSV("inventario_totales.csv", headers, rows);
+/* ===== Botones de +1 / +N en pestaña Escanear ===== */
+document.getElementById('btnPlus1').addEventListener('click', ()=>{
+  const code = document.getElementById('scanCode').value.trim();
+  if(!code) return;
+  const item = items.find(i=>i.code===code || (i.sku||"").toLowerCase()===code.toLowerCase());
+  if(!item) return;
+  item.cantidad += 1;
+  const nowISO = new Date().toISOString();
+  moves.push({dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+1, type:'scan'});
+  if(prefs.beep) beep();
+  if(prefs.vibrate && navigator.vibrate) navigator.vibrate(80);
+  flashScan(true, `+1 ${item.nombre} (${item.tela})`);
+  saveAll(); renderInventory();
+  document.getElementById('scanQty').value = item.cantidad;
 });
-document.getElementById('btnExportMovs').addEventListener('click', ()=>{
-  if(moves.length===0){ alert("No hay movimientos"); return; }
-  const headers = ["Fecha","Hora","Código","SKU","Modelo","Tela","Delta","Tipo"];
-  const rows = moves.map(m=>{
-    const d = new Date(m.dateISO||Date.now());
-    return [
-      d.toLocaleDateString(), d.toLocaleTimeString(),
-      m.code, m.sku||"", m.nombre, m.tela, m.delta, m.type
-    ];
-  });
-  downloadCSV("inventario_movimientos.csv", headers, rows);
+document.getElementById('btnPlusN').addEventListener('click', ()=>{
+  const n = parseInt(document.getElementById('plusN').value||"0");
+  const code = document.getElementById('scanCode').value.trim();
+  if(!n || !code) return;
+  const item = items.find(i=>i.code===code || (i.sku||"").toLowerCase()===code.toLowerCase());
+  if(!item) return;
+  item.cantidad += n;
+  const nowISO = new Date().toISOString();
+  moves.push({dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+n, type:'scan'});
+  if(prefs.beep) beep();
+  if(prefs.vibrate && navigator.vibrate) navigator.vibrate([60,30,60]);
+  flashScan(true, `+${n} ${item.nombre} (${item.tela})`);
+  saveAll(); renderInventory();
+  document.getElementById('scanQty').value = item.cantidad;
 });
-document.getElementById('btnImport').addEventListener('click', ()=>{
-  const input = document.getElementById('csvFile');
-  if(!input.files || !input.files[0]){ alert("Selecciona un archivo CSV"); return; }
-  const file = input.files[0];
-  const reader = new FileReader();
-  reader.onload = (e)=>{
-    const text = e.target.result;
-    const rows = parseCSV(text);
-    let imported=0, skipped=0;
-    rows.forEach(r=>{
-      const code = (r["Código"]||"").trim();
-      const nombre=(r["Modelo"]||"").trim();
-      const tela  =(r["Tela"]||"").trim();
-      const sku   =(r["SKU"]||"").trim();
-      const cant  = parseInt((r["Cantidad"]||"0").trim()||"0");
-      const fecha = (r["Fecha"]||"").trim();
 
-      if(!code){ skipped++; return; }
-      const existing = items.find(i=>i.code===code);
-      const createdISO = fecha? new Date(fecha).toISOString() : new Date().toISOString();
-
-      if(existing){
-        const delta = (cant - existing.cantidad);
-        existing.nombre = nombre || existing.nombre;
-        existing.tela   = tela   || existing.tela;
-        existing.sku    = sku    || existing.sku;
-        if(!Number.isNaN(cant)) existing.cantidad = cant;
-        if(!existing.createdISO) existing.createdISO = createdISO;
-        moves.push({dateISO:new Date().toISOString(), code:existing.code, sku:existing.sku, nombre:existing.nombre, tela:existing.tela, delta, type:'import'});
-      }else{
-        items.push({code, sku, nombre, tela, cantidad:(Number.isNaN(cant)?0:cant), createdISO});
-        moves.push({dateISO:new Date().toISOString(), code, sku, nombre, tela, delta:(Number.isNaN(cant)?0:cant), type:'import'});
-      }
-      imported++;
-      const m = code.match(/^KLL-(\d{4,})$/i);
-      if(m){ const n = parseInt(m[1]); if(n>=kllCounter) kllCounter = n+1; }
-    });
-    saveAll();
-    renderInventory(); refreshLabelSelect();
-    alert(`Importación completada.\nFilas importadas: ${imported}\nOmitidas (sin Código): ${skipped}`);
-  };
-  reader.readAsText(file);
-});
+/* ===== Preferencias ===== */
+document.getElementById('prefBeep').addEventListener('change', (e)=>{ prefs.beep = e.target.checked; saveAll(); });
+document.getElementById('prefVibrate').addEventListener('change', (e)=>{ prefs.vibrate = e.target.checked; saveAll(); });
 
 /* ===== Sesión completa (JSON) ===== */
 document.getElementById('btnExportSession').addEventListener('click', ()=>{
@@ -902,6 +876,19 @@ function beep(){
     setTimeout(()=>{ g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+0.02); o.stop(ac.currentTime+0.03); }, 120);
   }catch(e){}
 }
+function flashScan(ok, msg){
+  const el = document.getElementById('scanFlash');
+  if(!el) return;
+  el.textContent = msg || (ok ? '¡Leído!' : 'No registrado');
+  el.className = ok ? 'ok' : 'err';
+  el.style.display = 'block';
+  el.offsetHeight; // forzar reflujo
+  el.style.opacity = '1';
+  clearTimeout(el._hide1);
+  clearTimeout(el._hide2);
+  el._hide1 = setTimeout(()=>{ el.style.opacity = '0'; }, 700);
+  el._hide2 = setTimeout(()=>{ el.style.display = 'none'; }, 1000);
+}
 function downloadCSV(filename, headers, rows){
   const csv = headers.join(",")+"\n"+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
   const blob = new Blob([csv],{type:"text/csv;charset=utf-8"});
@@ -934,6 +921,43 @@ function splitCSVLine(line){
 }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 function escapeJs(s){ return String(s).replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$').replace(/"/g,'\\"'); }
+
+/* ===== Escáner físico (USB/Bluetooth) como teclado ===== */
+(function enableKeyboardScanner(){
+  let buffer = "";
+  let lastTime = 0;
+  const MAX_GAP_MS = 40;            // si pasan >40ms entre teclas, no es escáner
+  const MIN_LEN   = 4;
+  const END_KEYS  = new Set(["Enter", "Tab"]);
+
+  window.addEventListener('keydown', (ev)=>{
+    const now = Date.now();
+
+    // si el intervalo es grande, empezamos un nuevo buffer
+    if(now - lastTime > MAX_GAP_MS){
+      buffer = "";
+    }
+    lastTime = now;
+
+    // Enter/Tab marca fin del escaneo
+    if(END_KEYS.has(ev.key)){
+      if(buffer.length >= MIN_LEN){
+        ev.preventDefault(); // evita submits accidentales
+        ev.stopPropagation();
+        processScan(buffer);
+      }
+      buffer = "";
+      return;
+    }
+
+    // Ignorar combinaciones especiales
+    if(ev.ctrlKey || ev.altKey || ev.metaKey) return;
+    // Solo acumular caracteres imprimibles
+    if(ev.key.length !== 1) return;
+
+    buffer += ev.key;
+  }, true);
+})();
 </script>
 </body>
 </html>
