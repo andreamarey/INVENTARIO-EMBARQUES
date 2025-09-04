@@ -62,11 +62,31 @@ body{
 header{
   background: linear-gradient(135deg,var(--teal-600), var(--blue-600));
   color:#fff;
-  padding:18px 20px;
+  padding:28px 20px;
   text-align:center;
   font-weight:700;
-  letter-spacing:.3px;
+  letter-spacing:.5px;
   box-shadow: var(--shadow);
+  border-bottom:4px solid var(--indigo-600);
+  position: relative;
+}
+
+header h1{
+  margin:0;
+  font-size:2rem;
+  font-family:"Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  text-transform: uppercase;
+  text-shadow: 0 2px 6px rgba(0,0,0,.25);
+  letter-spacing:1px;
+}
+
+header span.sub{
+  display:block;
+  margin-top:6px;
+  font-size:0.9rem;
+  font-weight:400;
+  letter-spacing:.5px;
+  color: rgba(255,255,255,.85);
 }
 
 /* =====================  Contenedor  ===================== */
@@ -145,7 +165,6 @@ input:focus,select:focus{
   box-shadow: 0 0 0 4px var(--ring);
 }
 
-/* =====================  Botones  ===================== */
 /* =====================  Botones  ===================== */
 button{
   background: var(--primary);
@@ -293,7 +312,10 @@ button i {
 </style>
 </head>
 <body>
-<header>Inventario — KLL + SKU</header>
+<header>
+  <h1>Inventario — Embarques</h1>
+  <span class="sub">Control y seguimiento de muebles</span>
+</header>
 <div class="container">
 
   <!-- Tabs -->
