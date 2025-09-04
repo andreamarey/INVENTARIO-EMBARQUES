@@ -450,6 +450,58 @@ let selectedLabelCode = null; // Etiquetas (buscador)
   renderInventory();
   refreshLabelSelect(); // buscador de etiquetas
 })();
+// === Exportaciones desde la pestaña "Configuración y Herramientas" (todo, sin filtros) ===
+(function bindConfigExports(){
+  const btnTot = document.getElementById('btnExportTotals');
+  const btnMov = document.getElementById('btnExportMovs');
+  if(btnTot) btnTot.addEventListener('click', exportAllTotals);
+  if(btnMov) btnMov.addEventListener('click', exportAllMoves);
+})();
+// === Exportar TODO (sin filtros) para la pestaña Configuración ===
+function exportAllTotals(){
+  if(!Array.isArray(items) || items.length===0){
+    alert("No hay datos en Totales para exportar.");
+    return;
+  }
+  const headers = ["Modelo","Tela","SKU","Código","Cantidad","Fecha Alta"];
+  const rows = [...items]
+    .sort((a,b)=>(b.createdISO||"").localeCompare(a.createdISO||""))
+    .map(i=>[
+      i.nombre,
+      i.tela,
+      i.sku || "",
+      i.code,
+      Number(i.cantidad)||0,
+      i.createdISO ? new Date(i.createdISO).toLocaleDateString() : ""
+    ]);
+
+  downloadCSV("inventario_totales_COMPLETO.csv", headers, rows);
+}
+
+function exportAllMoves(){
+  if(!Array.isArray(moves) || moves.length===0){
+    alert("No hay movimientos para exportar.");
+    return;
+  }
+  const headers = ["Fecha","Hora","Código","SKU","Modelo","Tela","Delta","Tipo"];
+  const rows = [...moves]
+    .sort((a,b)=>(b.dateISO||"").localeCompare(a.dateISO||""))
+    .map(m=>{
+      const d = m.dateISO ? new Date(m.dateISO) : new Date();
+      return [
+        d.toLocaleDateString(),
+        d.toLocaleTimeString(),
+        m.code,
+        m.sku || "",
+        m.nombre,
+        m.tela,
+        Number(m.delta)||0,
+        m.type
+      ];
+    });
+
+  downloadCSV("inventario_movimientos_COMPLETO.csv", headers, rows);
+}
 function saveAll(){
   localStorage.setItem('items_simple', JSON.stringify(items));
   localStorage.setItem('moves_simple', JSON.stringify(moves));
