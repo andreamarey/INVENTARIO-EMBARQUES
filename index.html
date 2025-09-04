@@ -1269,6 +1269,17 @@ document.getElementById('prefBeep').addEventListener('change', (e)=>{ prefs.beep
 document.getElementById('prefVibrate').addEventListener('change', (e)=>{ prefs.vibrate = e.target.checked; saveAll(); });
 
 /* ===== Sesión completa (JSON) ===== */
+// Permitir re-seleccionar el mismo archivo sin recargar
+const jsonInput = document.getElementById('jsonSessionFile');
+if(jsonInput){
+  jsonInput.addEventListener('click', ()=>{ jsonInput.value = ''; });
+}
+
+// (opcional si luego usas el CSV): hace lo mismo para el CSV
+const csvInput = document.getElementById('csvFile');
+if(csvInput){
+  csvInput.addEventListener('click', ()=>{ csvInput.value = ''; });
+}
 document.getElementById('btnExportSession').addEventListener('click', ()=>{
   const payload = {
     version: 2,
@@ -1287,7 +1298,10 @@ document.getElementById('btnExportSession').addEventListener('click', ()=>{
 });
 document.getElementById('btnImportSession').addEventListener('click', ()=>{
   const input = document.getElementById('jsonSessionFile');
-  if(!input.files || !input.files[0]){ alert("Selecciona un archivo .json de sesión completa."); return; }
+  if(!input.files || !input.files[0]){ 
+    alert("Selecciona un archivo .json de sesión completa."); 
+    return; 
+  }
   if(!confirm("Esto reemplazará TODO el inventario actual, movimientos, contador KLL, preferencias y (si vienen) los cortes mensuales. ¿Continuar?")) return;
 
   const file = input.files[0];
@@ -1296,7 +1310,10 @@ document.getElementById('btnImportSession').addEventListener('click', ()=>{
     try{
       const data = JSON.parse(e.target.result);
       if(!data || !Array.isArray(data.items) || !Array.isArray(data.moves)){
-        alert("Archivo inválido: faltan 'items' o 'moves'."); return;
+        alert("Archivo inválido: faltan 'items' o 'moves'."); 
+        // Limpia el input para poder elegir el mismo archivo u otro
+        resetFileInput(input);
+        return;
       }
       items = data.items;
       moves = data.moves;
@@ -1316,12 +1333,25 @@ document.getElementById('btnImportSession').addEventListener('click', ()=>{
     }catch(err){
       console.error(err);
       alert("No se pudo leer el JSON. Verifica el archivo.");
+    }finally{
+      // SIEMPRE limpia el input al terminar (éxito o error)
+      resetFileInput(input);
     }
   };
   reader.readAsText(file);
 });
 
 /* ===== Utilidades ===== */
+// === Helper para resetear <input type="file"> de forma segura ===
+function resetFileInput(el){
+  try{
+    el.value = '';
+  }catch(e){
+    // fallback raro de algunos navegadores: clonar y reemplazar
+    const nuevo = el.cloneNode();
+    el.parentNode.replaceChild(nuevo, el);
+  }
+}
 function beep(){
   try{
     const ac = new (window.AudioContext||window.webkitAudioContext)();
