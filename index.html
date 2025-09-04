@@ -1338,8 +1338,106 @@ document.getElementById('btnImportSession').addEventListener('click', ()=>{
       resetFileInput(input);
     }
   };
-  reader.readAsText(file);
-});
+  // === Importar CSV (Totales; requiere columna "Código") ===
+(function bindCsvImport(){
+  const btn = document.getElementById('btnImport');
+  const input = document.getElementById('csvFile');
+  if(!btn || !input) return;
+
+  // Permitir re-seleccionar el mismo archivo sin recargar
+  input.addEventListener('click', ()=>{ input.value = ''; });
+
+  btn.addEventListener('click', ()=>{
+    if(!input.files || !input.files[0]){
+      alert("Selecciona un archivo .csv primero.");
+      return;
+    }
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = (e)=>{
+      try{
+        const rows = parseCSV(e.target.result);
+        if(!rows.length){
+          alert("El CSV está vacío.");
+          return;
+        }
+
+        // Normaliza encabezados
+        const headerMap = Object.keys(rows[0]).reduce((acc,k)=>{
+          acc[k.trim().toLowerCase()] = k;
+          return acc;
+        },{});
+        const colCode   = headerMap['código'] || headerMap['codigo'] || headerMap['code'] || headerMap['kll'] || null;
+        if(!colCode){
+          alert('El CSV debe incluir una columna "Código". (Acepta: Código, Codigo, Code, KLL)');
+          return;
+        }
+        const colSKU    = headerMap['sku'] || null;
+        const colNombre = headerMap['modelo'] || headerMap['nombre'] || null;
+        const colTela   = headerMap['tela'] || null;
+        const colCant   = headerMap['cantidad'] || headerMap['qty'] || null;
+
+        const nowISO = new Date().toISOString();
+        let updated=0, created=0, movesAdded=0;
+
+        rows.forEach(r=>{
+          const code = (r[colCode]||'').trim();
+          if(!code) return;
+
+          const sku     = colSKU    ? String(r[colSKU]||'').trim() : '';
+          const nombre  = colNombre ? String(r[colNombre]||'').trim() : '';
+          const tela    = colTela   ? String(r[colTela]||'').trim() : '';
+          const qtyCsv  = colCant   ? parseInt(String(r[colCant]||'0'),10) : 1;
+          const qty     = Number.isFinite(qtyCsv) ? Math.max(0, qtyCsv) : 0;
+
+          let it = items.find(i=>i.code===code);
+
+          if(it){
+            // Actualizar datos
+            if(nombre) it.nombre = nombre;
+            if(tela)   it.tela   = tela;
+            if(sku)    it.sku    = sku;
+
+            const before = parseInt(it.cantidad)||0;
+            if(colCant){
+              const delta = qty - before;
+              if(delta !== 0){
+                it.cantidad = qty;
+                moves.push({id: genId(),dateISO: nowISO, code: it.code, sku: it.sku, nombre: it.nombre, tela: it.tela, delta, type:'import'});
+                movesAdded++;
+              }
+            }else{
+              it.cantidad = before + 1;
+              moves.push({id: genId(),dateISO: nowISO, code: it.code, sku: it.sku, nombre: it.nombre, tela: it.tela, delta:+1, type:'import'});
+              movesAdded++;
+            }
+            updated++;
+          }else{
+            const nuevo = {code, sku, nombre: nombre||'(Sin nombre)', tela: tela||'(Sin tela)', cantidad: colCant ? qty : 1, createdISO: nowISO};
+            items.push(nuevo);
+            if(nuevo.cantidad){
+              moves.push({id: genId(),dateISO: nowISO, code: nuevo.code, sku: nuevo.sku, nombre: nuevo.nombre, tela: nuevo.tela, delta:nuevo.cantidad, type:'import'});
+              movesAdded++;
+            }
+            created++;
+          }
+        });
+
+        saveAll();
+        renderInventory();
+        refreshLabelSelect();
+
+        alert(`Importación terminada.\nNuevos: ${created}\nActualizados: ${updated}\nMovimientos añadidos: ${movesAdded}`);
+      }catch(err){
+        console.error(err);
+        alert("No se pudo leer el CSV. Verifica el formato.");
+      }
+    };
+
+    reader.readAsText(file);
+  });
+})();
 
 /* ===== Utilidades ===== */
 // === Helper para resetear <input type="file"> de forma segura ===
