@@ -9,139 +9,218 @@
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --primary:#2563eb; --primary-600:#1d4ed8;
-    --bg:#f3f4f6; --card:#fff; --text:#111827; --muted:#6b7280;
-    --ring:rgba(37,99,235,.15)
-  }
-  *{box-sizing:border-box}
-body {font-family: 'Inter', sans-serif; margin: 0; background: var(--bg); color: var(--text); }
-  header { background:var(--primary); color:#fff; padding:16px; text-align:center; font-weight:700; }
-  .container { max-width:1100px; margin:20px auto; padding:10px; }
-  .tabs { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
-  .tab-btn { flex:1; min-width:150px; padding:10px; cursor:pointer; border:1px solid #e5e7eb; background:#fff; border-radius:8px; font-weight:700; }
-  .tab-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
-  .card { background:#fff; border-radius:10px; padding:15px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
-  .hidden { display:none; }
-  input,button,select { width:100%; padding:10px; margin:6px 0; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:var(--text); }
-  input:focus,select:focus { outline:none; box-shadow:0 0 0 3px var(--ring); border-color:var(--primary); }
-  button { background:var(--primary); color:#fff; border:none; cursor:pointer; font-weight:700; }
-  button:hover { background:var(--primary-600); }
-  .btn-secondary{ background:#6b7280; }
-  .btn-secondary:hover{ background:#4b5563; }
-  .btn-danger{ background:#ef4444; }
-  .btn-danger:hover{ background:#dc2626; }
-  .row{display:flex; gap:10px; flex-wrap:wrap}
-  .muted { color:var(--muted); font-size:.9rem; }
-  ul{padding-left:18px; margin:6px 0}
+/* Tipografía (fallback si no agregas el <link> en <head>) */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
-  /* Etiqueta preview (pantalla) */
-  .label-preview { border:1px solid #000; padding:12px; width:320px; background:#fff; border-radius:6px; }
-  .model { font-size:20px; font-weight:700; }
-  .fabric, .sku, .date { font-size:14px; margin-top:2px; }
+/* =====================  Variables de diseño  ===================== */
+:root{
+  /* Paleta base (del usuario) */
+  --teal-600:#468B83;   /* principal */
+  --blue-600:#46718B;   /* acento 1 */
+  --indigo-600:#464E8B; /* acento 2 */
 
-  /* Historial / Conteo */
-  .group{margin:10px 0}
-  .group h3{margin:0 0 6px 0; font-size:1rem}
-  .mov{padding:6px 8px; border:1px solid #e5e7eb; border-radius:8px; margin:4px 0; background:#fff}
-  .kv{font-family:ui-monospace, Menlo, Consolas, monospace; font-size:.9rem}
-  table th, table td { font-size:14px; }
+  /* Derivados y neutros */
+  --primary: var(--teal-600);
+  --primary-700: #3b756f;
+  --primary-50:  #ecf7f5;
 
-  /* ===== Indicador de escaneo (flash) ===== */
-  #scanFlash{
-    position: fixed;
-    top: 16px;
-    right: 16px;
-    z-index: 9999;
-    padding: 12px 14px;
-    border-radius: 10px;
-    font-weight: 700;
-    color: #fff;
-    display: none;
-    opacity: 0;
-    transition: opacity .25s ease;
-    box-shadow: 0 8px 20px rgba(0,0,0,.15);
-  }
-  #scanFlash.ok { background: #10b981; }  /* verde */
-  #scanFlash.err{ background: #ef4444; }  /* rojo  */
-  
-  /* Inventario como tabla */
-.inv-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-  font-size: 14px;
-  background: #fff;
-}
-.inv-table th, .inv-table td {
-  border: 1px solid #e5e7eb;
-  padding: 8px;
-  text-align: left;
-}
-.inv-table th {
-  background: #f9fafb;
-  font-weight: 700;
-}
-.inv-table tbody tr:nth-child(even) {
-  background: #f3f4f6;
-}
-.inv-table td:last-child {
-  text-align: center;
+  --bg:#f5f7fb;
+  --card:#ffffff;
+  --text:#111827;
+  --muted:#6b7280;
+  --border:#e5e7eb;
+  --shadow:0 6px 20px rgba(0,0,0,.06);
+  --ring: rgba(70,139,131,.25); /* anillo de foco con tu color */
 }
 
-/* Botón eliminar */
-.btn-del {
-  background: #ef4444;
-  color: #fff;
-  border: none;
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-  cursor: pointer;
+/* =====================  Reset básico  ===================== */
+*{ box-sizing:border-box }
+html,body{ height:100% }
+body{
+  margin:0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-weight: 400;
+  letter-spacing:.2px;
 }
-.btn-del:hover { background: #dc2626; }
 
-/* Movimientos como tabla */
-.mov-table{
+/* =====================  Header  ===================== */
+header{
+  background: linear-gradient(135deg,var(--teal-600), var(--blue-600));
+  color:#fff;
+  padding:18px 20px;
+  text-align:center;
+  font-weight:700;
+  letter-spacing:.3px;
+  box-shadow: var(--shadow);
+}
+
+/* =====================  Contenedor  ===================== */
+.container{
+  max-width:1200px;
+  margin:28px auto;
+  padding: 0 20px;
+}
+
+/* =====================  Tabs (inactivas texto negro / activa blanca)  ===================== */
+.tabs{
+  display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;
+}
+.tab-btn{
+  flex:1; min-width:160px;
+  padding:12px 14px;
+  background:#f3f4f6;       /* inactiva */
+  color:#111;               /* texto negro en inactiva */
+  border:1px solid var(--border);
+  border-radius:10px;
+  font-weight:600;
+  cursor:pointer;
+  transition: all .18s ease;
+}
+.tab-btn:hover{
+  background:#fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,.05);
+}
+.tab-btn.active{
+  background:#fff;          /* activa blanca */
+  color: var(--primary-700);/* texto con matiz del primario */
+  border-color: var(--primary);
+  box-shadow: 0 6px 16px rgba(70,139,131,.15);
+}
+
+/* =====================  Tarjetas / secciones  ===================== */
+.card{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius:14px;
+  padding: 24px;
+  margin-bottom: 22px;
+  box-shadow: var(--shadow);
+}
+
+/* =====================  Tipografía / espaciados  ===================== */
+h2{
+  margin:0 0 12px 0;
+  font-size: 1.25rem;
+  font-weight:700;
+  letter-spacing:.2px;
+}
+h3{
+  margin:18px 0 10px 0;
+  font-size: 1rem;
+  font-weight:600;
+}
+.muted{ color: var(--muted); font-size:.92rem; }
+
+/* =====================  Layout de formularios  ===================== */
+.row{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom: 12px; }
+
+input,select,button{
   width:100%;
-  border-collapse:collapse;
+  padding:12px 14px;
+  margin:6px 0;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:#fff;
+  color:var(--text);
+  font-size:15px;
+}
+input:focus,select:focus{
+  outline:none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--ring);
+}
+
+/* =====================  Botones  ===================== */
+button{
+  background: var(--primary);
+  color:#fff;
+  border:none;
+  font-weight:700;
+  cursor:pointer;
+  transition: transform .06s ease, box-shadow .2s ease, background .2s ease;
+}
+button:hover{ filter: brightness(0.95); box-shadow:0 6px 16px rgba(0,0,0,.08); }
+button:active{ transform: translateY(1px); }
+
+.btn-secondary{
+  background: var(--blue-600);
+}
+.btn-secondary:hover{ filter: brightness(0.97); }
+
+.btn-danger{
+  background:#ef4444;
+}
+.btn-danger:hover{ background:#dc2626; }
+
+.btn-del, .btn-del-mov{
+  background:#ef4444;
+  color:#fff; border:none;
+  padding:7px 12px;
+  border-radius:10px;
+  font-size:12.5px;
+  font-weight:700;
+}
+.btn-del:hover, .btn-del-mov:hover{ background:#dc2626; }
+
+/* =====================  Tablas  ===================== */
+.inv-table, .mov-table{
+  width:100%;
+  border-collapse: collapse;
   margin-top:10px;
   font-size:14px;
   background:#fff;
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  box-shadow: var(--shadow);
 }
+.inv-table th, .inv-table td,
 .mov-table th, .mov-table td{
-  border:1px solid #e5e7eb;
-  padding:8px;
+  border-bottom:1px solid var(--border);
+  padding:10px 12px;
   text-align:left;
 }
-.mov-table th{
-  background:#f9fafb;
+.inv-table th, .mov-table th{
+  background: var(--primary-50);
+  color:#0f172a;
   font-weight:700;
 }
+.inv-table tbody tr:nth-child(even),
 .mov-table tbody tr:nth-child(even){
-  background:#f3f4f6;
+  background:#fafafa;
 }
+.inv-table td:last-child, .mov-table td:last-child{ text-align:center; }
 .mov-table td:nth-last-child(3){ text-align:right; } /* columna Δ */
-.mov-table td:last-child{ text-align:center; }
 
-/* Botón eliminar movimiento (reutiliza .btn-del) */
-.btn-del-mov{ /* opcional si quieres un tono distinto */
-  background:#ef4444;
-  color:#fff;
-  border:none;
-  padding:6px 10px;
-  border-radius:8px;
-  font-size:12px;
-  cursor:pointer;
+/* =====================  Etiqueta / vista previa  ===================== */
+.label-preview{
+  border:1.5px solid #111;
+  padding:14px;
+  width:340px;
+  background:#fff;
+  border-radius:10px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.08);
 }
-.btn-del-mov:hover{ background:#dc2626; }
-h1, h2, h3 {
-  font-weight: 700; /* títulos más fuertes */
-}
+.model{ font-size:20px; font-weight:700; }
+.fabric,.sku,.date{ font-size:14px; margin-top:2px; }
 
-button {
-  font-weight: 600; /* botones con texto un poco más grueso */
+/* =====================  Tarjetas de historial  ===================== */
+.group{ margin:12px 0 }
+.group h3{ margin:0 0 8px 0; font-size:1rem }
+.mov{ padding:8px 10px; border:1px solid var(--border); border-radius:12px; margin:6px 0; background:#fff }
+.kv{ font-family: ui-monospace, Menlo, Consolas, monospace; font-size:.92rem }
+
+/* =====================  Flash de escaneo  ===================== */
+#scanFlash{
+  position: fixed; top:16px; right:16px; z-index:9999;
+  padding:12px 14px; border-radius:12px; font-weight:700; color:#fff;
+  display:none; opacity:0; transition:opacity .25s ease;
+  box-shadow: 0 10px 24px rgba(0,0,0,.18);
 }
+#scanFlash.ok{ background:#10b981; }
+#scanFlash.err{ background:#ef4444; }
 </style>
 </head>
 <body>
