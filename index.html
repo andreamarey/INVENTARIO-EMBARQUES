@@ -246,7 +246,7 @@ button:active{ transform: translateY(1px); }
       <input id="newFabric" placeholder="Tela (ej. Lino Beige)">
       <input id="newSKU" placeholder="SKU (ej. SR-LB)">
     </div>
-    <button id="btnGenerate">Guardar / Sumar</button>
+    <button id="btnGenerate"><i class="fa fa-plus"></i> Guardar / Sumar</button>
     <div class="muted">Si ya existe el mismo <b>SKU + Modelo + Tela</b>, se suma cantidad y se reutiliza el mismo KLL.</div>
   </section>
 
@@ -255,8 +255,8 @@ button:active{ transform: translateY(1px); }
     <h2>Escanear (QR + Code128)</h2>
     <div class="row">
       <select id="cameraSelect" title="Selecciona cámara"></select>
-      <button id="btnStart" class="btn-secondary">Iniciar cámara</button>
-      <button id="btnStop" class="btn-secondary">Detener cámara</button>
+<button id="btnStart" class="btn-secondary"><i class="fa fa-camera"></i> Iniciar cámara</button>
+<button id="btnStop" class="btn-secondary"><i class="fa fa-stop"></i> Detener cámara</button>
     </div>
     <div id="reader" style="width:100%; max-width:420px; margin:8px auto;"></div>
     <div class="row">
@@ -267,9 +267,9 @@ button:active{ transform: translateY(1px); }
       <input id="scanQty" placeholder="Cantidad total" readonly>
     </div>
     <div class="row">
-      <button id="btnPlus1" class="btn-secondary">+1</button>
+    <button id="btnPlus1" class="btn-secondary"><i class="fa fa-plus"></i> +1</button>
       <input id="plusN" type="number" min="1" value="5" style="max-width:140px">
-      <button id="btnPlusN" class="btn-secondary">+N</button>
+    <button id="btnPlusN" class="btn-secondary"><i class="fa fa-layer-group"></i> +N</button>
     </div>
     <div class="muted">Tras detectar, se pausa 1.2s para evitar dobles lecturas.</div>
   </section>
