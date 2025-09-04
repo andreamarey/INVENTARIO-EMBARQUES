@@ -292,9 +292,13 @@ button i {
     </div>
 
     <div class="row" style="margin-top:6px">
-      <button onclick="exportFilteredTotals()">Exportar CSV (Totales Filtrados)</button>
-      <button onclick="exportFilteredHistory()" class="btn-secondary">Exportar CSV (Historial Filtrado)</button>
-    </div>
+  <button onclick="exportFilteredTotals()">
+    <i class="fa fa-file-export"></i> Exportar CSV (Totales Filtrados)
+  </button>
+  <button onclick="exportFilteredHistory()" class="btn-secondary">
+    <i class="fa fa-file-export"></i> Exportar CSV (Historial Filtrado)
+  </button>
+</div>
 
   <h3 style="margin-top:14px">Totales (filtrados)</h3>
 
@@ -553,17 +557,21 @@ function renderInventory(){
 
   data.forEach(i=>{
     const dateTxt = i.createdISO ? new Date(i.createdISO).toLocaleDateString() : "";
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${escapeHtml(i.nombre)}</td>
-      <td>${escapeHtml(i.tela)}</td>
-      <td>${escapeHtml(i.sku||'')}</td>
-      <td>${escapeHtml(i.code)}</td>
-      <td style="text-align:right">${i.cantidad}</td>
-      <td>${escapeHtml(dateTxt)}</td>
-      <td><button class="btn-del" onclick="deleteItem('${escapeJs(i.code)}')">Eliminar</button></td>
-    `;
-    tbody.appendChild(tr);
+  const tr = document.createElement('tr');
+tr.innerHTML = `
+  <td>${escapeHtml(i.nombre)}</td>
+  <td>${escapeHtml(i.tela)}</td>
+  <td>${escapeHtml(i.sku||'')}</td>
+  <td>${escapeHtml(i.code)}</td>
+  <td style="text-align:right">${i.cantidad}</td>
+  <td>${escapeHtml(dateTxt)}</td>
+  <td>
+    <button class="btn-del" onclick="deleteItem('${escapeJs(i.code)}')" title="Eliminar producto">
+      <i class="fa fa-trash"></i> Eliminar
+    </button>
+  </td>
+`;
+tbody.appendChild(tr);
   });
 
   // Mantén el historial sincronizado con los mismos filtros
@@ -604,21 +612,23 @@ function renderHistory(){
 
   rows.forEach(m=>{
     const d = m.dateISO ? new Date(m.dateISO) : new Date();
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${d.toLocaleDateString()}</td>
-      <td>${d.toLocaleTimeString()}</td>
-      <td>${escapeHtml(m.code)}</td>
-      <td>${escapeHtml(m.sku||'')}</td>
-      <td>${escapeHtml(m.nombre)}</td>
-      <td>${escapeHtml(m.tela)}</td>
-      <td style="text-align:right">${m.delta>0? '+'+m.delta : m.delta}</td>
-      <td>${escapeHtml(m.type)}</td>
-      <td>
-        <button class="btn-del-mov" onclick="deleteMove('${escapeJs(m.id)}')">Eliminar</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
+const tr = document.createElement('tr');
+tr.innerHTML = `
+  <td>${d.toLocaleDateString()}</td>
+  <td>${d.toLocaleTimeString()}</td>
+  <td>${escapeHtml(m.code)}</td>
+  <td>${escapeHtml(m.sku||'')}</td>
+  <td>${escapeHtml(m.nombre)}</td>
+  <td>${escapeHtml(m.tela)}</td>
+  <td style="text-align:right">${m.delta>0? '+'+m.delta : m.delta}</td>
+  <td>${escapeHtml(m.type)}</td>
+  <td>
+    <button class="btn-del-mov" onclick="deleteMove('${escapeJs(m.id)}')" title="Eliminar movimiento">
+      <i class="fa fa-trash"></i> Eliminar
+    </button>
+  </td>
+`;
+tbody.appendChild(tr);
   });
 }function exportFilteredTotals(){
   const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
