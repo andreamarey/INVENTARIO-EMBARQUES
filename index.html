@@ -1166,16 +1166,23 @@ function onScanSuccess(text){
 
 /* ===== Lógica común para cámara + escáner físico ===== */
 function processScan(text){
-  const codeText = String(text || "").trim();
+  const codeTextRaw = String(text || "");
+  const codeText = normalizeScan(codeTextRaw);
   if(!codeText) return;
+
+  // Reflejar el texto detectado (mostramos lo normalizado para evitar confusiones)
+  const codeInput = document.getElementById('scanCode');
+  if(codeInput) codeInput.value = codeText;
 
   // Reflejar el texto detectado en la pestaña Escanear (si está abierta)
   const codeInput = document.getElementById('scanCode');
   if(codeInput) codeInput.value = codeText;
 
-  // Buscar por Código KLL exacto o por SKU (insensible a mayúsculas)
-  const item = items.find(i=> i.code === codeText ||
-                              (i.sku||"").toLowerCase() === codeText.toLowerCase());
+  // Buscar por Código KLL o SKU usando comparación normalizada
+  const item = items.find(i =>
+    normalizeScan(i.code) === codeText ||
+    normalizeScan(i.sku || "") === codeText
+  );
 
   if(item){
     item.cantidad += 1;
@@ -1542,6 +1549,26 @@ function resetFileInput(el){
     const nuevo = el.cloneNode();
     el.parentNode.replaceChild(nuevo, el);
   }
+}
+// Normaliza lo leído por el escáner para comparar códigos y SKUs
+function normalizeScan(s){
+  if(!s) return "";
+  // Normaliza forma Unicode y limpia espacios
+  let t = String(s).normalize('NFKC').trim();
+
+  // Cambia variantes de apóstrofo/acento por guion
+  // ´  ’  '  `  ˊ  ʹ  ‘
+  t = t.replace(/[\u00B4\u2019\u0027\u0060\u02CA\u02B9\u2018]/g, '-');
+
+  // Cambia variantes de guion/dash por guion simple
+  // – — − ‐ -
+  t = t.replace(/[\u2013\u2014\u2212\u2010\u2011]/g, '-');
+
+  // Quita espacios internos
+  t = t.replace(/\s+/g, '');
+
+  // Mayúsculas para comparar sin sensibilidad
+  return t.toUpperCase();
 }
 function beep(){
   try{
