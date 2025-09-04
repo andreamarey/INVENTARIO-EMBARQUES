@@ -31,7 +31,19 @@
   --muted:#6b7280;
   --border:#e5e7eb;
   --shadow:0 6px 20px rgba(0,0,0,.06);
-  --ring: rgba(70,139,131,.25); /* anillo de foco con tu color */
+  --ring: rgba(70,139,131,.25);
+
+  /* NUEVO: Colores de estado */
+  --success:#10b981;
+  --success-50:#ecfdf5;
+  --warning:#f59e0b;
+  --warning-50:#fffbeb;
+  --danger:#ef4444;
+  --danger-600:#dc2626;
+  --danger-50:#fef2f2;
+
+  /* Hover fila tabla */
+  --row-hover:#f1f5f9;
 }
 
 /* =====================  Reset básico  ===================== */
@@ -134,36 +146,51 @@ input:focus,select:focus{
 }
 
 /* =====================  Botones  ===================== */
+/* =====================  Botones  ===================== */
 button{
   background: var(--primary);
   color:#fff;
   border:none;
   font-weight:700;
   cursor:pointer;
-  transition: transform .06s ease, box-shadow .2s ease, background .2s ease;
+  border-radius:10px;
+  padding:12px 14px;
+  transition:
+    transform .06s ease,
+    box-shadow .2s ease,
+    background .2s ease,
+    filter .2s ease;
 }
-button:hover{ filter: brightness(0.95); box-shadow:0 6px 16px rgba(0,0,0,.08); }
+button:hover{
+  filter: brightness(0.97);
+  box-shadow:0 6px 16px rgba(0,0,0,.08);
+}
 button:active{ transform: translateY(1px); }
-
-.btn-secondary{
-  background: var(--blue-600);
+button:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 4px var(--ring);
 }
-.btn-secondary:hover{ filter: brightness(0.97); }
 
-.btn-danger{
-  background:#ef4444;
-}
-.btn-danger:hover{ background:#dc2626; }
+/* Variantes */
+.btn-secondary{ background: var(--blue-600); }
+.btn-secondary:hover{ filter: brightness(0.98); }
 
+.btn-danger{ background: var(--danger); }
+.btn-danger:hover{ background: var(--danger-600); }
+
+/* Botones de borrar (mantengo tus clases) */
 .btn-del, .btn-del-mov{
-  background:#ef4444;
+  background: var(--danger);
   color:#fff; border:none;
-  padding:7px 12px;
+  padding:8px 12px;
   border-radius:10px;
   font-size:12.5px;
   font-weight:700;
 }
-.btn-del:hover, .btn-del-mov:hover{ background:#dc2626; }
+.btn-del:hover, .btn-del-mov:hover{ background: var(--danger-600); }
+
+/* Iconos dentro de botones */
+button i { margin-right: 6px; }
 
 /* =====================  Tablas  ===================== */
 .inv-table, .mov-table{
@@ -188,12 +215,49 @@ button:active{ transform: translateY(1px); }
   color:#0f172a;
   font-weight:700;
 }
+.inv-table th, .mov-table th{
+  position: sticky; /* opcional, requiere contenedor con overflow */
+  top: 0;
+  z-index: 1;
+}
 .inv-table tbody tr:nth-child(even),
 .mov-table tbody tr:nth-child(even){
   background:#fafafa;
 }
 .inv-table td:last-child, .mov-table td:last-child{ text-align:center; }
 .mov-table td:nth-last-child(3){ text-align:right; } /* columna Δ */
+/* =====================  Chips para "Tipo" en historial  ===================== */
+.chip{
+  display:inline-block;
+  padding:2px 8px;
+  border-radius:999px;
+  font-size:12px;
+  line-height:1.6;
+  font-weight:700;
+  border:1px solid transparent;
+}
+
+.chip-register{
+  background: var(--success-50);
+  color: var(--success);
+  border-color: rgba(16,185,129,.25);
+}
+.chip-import{
+  background: var(--warning-50);
+  color: var(--warning);
+  border-color: rgba(245,158,11,.25);
+}
+.chip-scan{
+  background: var(--primary-50);
+  color: var(--primary-700);
+  border-color: rgba(70,139,131,.25);
+}
+
+/* Hover de filas en tablas (más feedback visual) */
+.inv-table tbody tr:hover,
+.mov-table tbody tr:hover{
+  background: var(--row-hover);
+}
 
 /* =====================  Etiqueta / vista previa  ===================== */
 .label-preview{
@@ -673,7 +737,11 @@ tr.innerHTML = `
   <td>${escapeHtml(m.nombre)}</td>
   <td>${escapeHtml(m.tela)}</td>
   <td style="text-align:right">${m.delta>0? '+'+m.delta : m.delta}</td>
-  <td>${escapeHtml(m.type)}</td>
+<td>
+  <span class="chip chip-${escapeHtml(m.type)}">
+    ${escapeHtml(m.type)}
+  </span>
+</td>
   <td>
     <button class="btn-del-mov" onclick="deleteMove('${escapeJs(m.id)}')" title="Eliminar movimiento">
       <i class="fa fa-trash"></i> Eliminar
