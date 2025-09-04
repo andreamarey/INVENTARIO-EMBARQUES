@@ -1170,15 +1170,11 @@ function processScan(text){
   const codeText = normalizeScan(codeTextRaw);
   if(!codeText) return;
 
-  // Reflejar el texto detectado (mostramos lo normalizado para evitar confusiones)
+  // Reflejar el texto normalizado en la UI
   const codeInput = document.getElementById('scanCode');
   if(codeInput) codeInput.value = codeText;
 
-  // Reflejar el texto detectado en la pestaña Escanear (si está abierta)
-  const codeInput = document.getElementById('scanCode');
-  if(codeInput) codeInput.value = codeText;
-
-  // Buscar por Código KLL o SKU usando comparación normalizada
+  // Buscar por Código KLL o por SKU usando comparación normalizada
   const item = items.find(i =>
     normalizeScan(i.code) === codeText ||
     normalizeScan(i.sku || "") === codeText
@@ -1187,15 +1183,22 @@ function processScan(text){
   if(item){
     item.cantidad += 1;
     const nowISO = new Date().toISOString();
-    moves.push({id: genId(),dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+1, type:'scan'});
+    moves.push({
+      id: genId(),
+      dateISO: nowISO,
+      code: item.code,
+      sku: item.sku,
+      nombre: item.nombre,
+      tela: item.tela,
+      delta: +1,
+      type: 'scan'
+    });
 
     if(prefs.beep) beep();
     if(prefs.vibrate && navigator.vibrate) navigator.vibrate(80);
 
-    // Indicador visual de éxito
     flashScan(true, `+1 ${item.nombre} (${item.tela})`);
 
-    // Actualiza campos de la pestaña Escanear (si visible)
     const n = document.getElementById('scanName');
     const f = document.getElementById('scanFabric');
     const s = document.getElementById('scanSKU');
@@ -1208,7 +1211,6 @@ function processScan(text){
     saveAll();
     renderInventory();
   }else{
-    // Indicador visual de error / no encontrado
     flashScan(false, 'Código no registrado');
 
     const n = document.getElementById('scanName');
@@ -1553,21 +1555,17 @@ function resetFileInput(el){
 // Normaliza lo leído por el escáner para comparar códigos y SKUs
 function normalizeScan(s){
   if(!s) return "";
-  // Normaliza forma Unicode y limpia espacios
   let t = String(s).normalize('NFKC').trim();
 
-  // Cambia variantes de apóstrofo/acento por guion
-  // ´  ’  '  `  ˊ  ʹ  ‘
+  // Reemplaza apóstrofos/acento por guion
   t = t.replace(/[\u00B4\u2019\u0027\u0060\u02CA\u02B9\u2018]/g, '-');
 
-  // Cambia variantes de guion/dash por guion simple
-  // – — − ‐ -
+  // Reemplaza dashes Unicode por guion simple
   t = t.replace(/[\u2013\u2014\u2212\u2010\u2011]/g, '-');
 
-  // Quita espacios internos
+  // Quita espacios
   t = t.replace(/\s+/g, '');
 
-  // Mayúsculas para comparar sin sensibilidad
   return t.toUpperCase();
 }
 function beep(){
