@@ -1302,7 +1302,6 @@ document.getElementById('btnImportSession').addEventListener('click', ()=>{
     alert("Selecciona un archivo .json de sesión completa."); 
     return; 
   }
-  if(!confirm("Esto reemplazará TODO el inventario actual, movimientos, contador KLL, preferencias y (si vienen) los cortes mensuales. ¿Continuar?")) return;
 
   const file = input.files[0];
   const reader = new FileReader();
@@ -1310,10 +1309,7 @@ document.getElementById('btnImportSession').addEventListener('click', ()=>{
     try{
       const data = JSON.parse(e.target.result);
       if(!data || !Array.isArray(data.items) || !Array.isArray(data.moves)){
-        alert("Archivo inválido: faltan 'items' o 'moves'."); 
-        // Limpia el input para poder elegir el mismo archivo u otro
-        resetFileInput(input);
-        return;
+        alert("Archivo inválido: faltan 'items' o 'moves'."); return;
       }
       items = data.items;
       moves = data.moves;
@@ -1333,12 +1329,11 @@ document.getElementById('btnImportSession').addEventListener('click', ()=>{
     }catch(err){
       console.error(err);
       alert("No se pudo leer el JSON. Verifica el archivo.");
-    }finally{
-      // SIEMPRE limpia el input al terminar (éxito o error)
-      resetFileInput(input);
     }
   };
-  // === Importar CSV (Totales; requiere columna "Código") ===
+  reader.readAsText(file);
+}); // ←← Asegúrate de que este cierre exista
+// === Importar CSV (Totales; requiere columna "Código") ===
 (function bindCsvImport(){
   const btn = document.getElementById('btnImport');
   const input = document.getElementById('csvFile');
@@ -1359,68 +1354,77 @@ document.getElementById('btnImportSession').addEventListener('click', ()=>{
       try{
         const rows = parseCSV(e.target.result);
         if(!rows.length){
-          alert("El CSV está vacío.");
+          alert("El CSV está vacío."); return;
+        }
+
+        // Validación mínima: necesitamos la columna "Código" o "Codigo"
+        const hasCodigo = Object.keys(rows[0]).some(h => h.trim().toLowerCase() === 'código' || h.trim().toLowerCase() === 'codigo');
+        if(!hasCodigo){
+          alert('El CSV debe incluir la columna "Código".'); 
           return;
         }
 
-        // Normaliza encabezados
-        const headerMap = Object.keys(rows[0]).reduce((acc,k)=>{
-          acc[k.trim().toLowerCase()] = k;
-          return acc;
-        },{});
-        const colCode   = headerMap['código'] || headerMap['codigo'] || headerMap['code'] || headerMap['kll'] || null;
-        if(!colCode){
-          alert('El CSV debe incluir una columna "Código". (Acepta: Código, Codigo, Code, KLL)');
-          return;
-        }
-        const colSKU    = headerMap['sku'] || null;
-        const colNombre = headerMap['modelo'] || headerMap['nombre'] || null;
-        const colTela   = headerMap['tela'] || null;
-        const colCant   = headerMap['cantidad'] || headerMap['qty'] || null;
-
-        const nowISO = new Date().toISOString();
-        let updated=0, created=0, movesAdded=0;
+        let creados = 0, actualizados = 0, movs = 0;
 
         rows.forEach(r=>{
-          const code = (r[colCode]||'').trim();
+          const get = (k) => {
+            const key = Object.keys(r).find(h => h.trim().toLowerCase() === k.toLowerCase());
+            return key ? (r[key]||'').trim() : '';
+          };
+
+          const code      = get('código') || get('codigo');
           if(!code) return;
 
-          const sku     = colSKU    ? String(r[colSKU]||'').trim() : '';
-          const nombre  = colNombre ? String(r[colNombre]||'').trim() : '';
-          const tela    = colTela   ? String(r[colTela]||'').trim() : '';
-          const qtyCsv  = colCant   ? parseInt(String(r[colCant]||'0'),10) : 1;
-          const qty     = Number.isFinite(qtyCsv) ? Math.max(0, qtyCsv) : 0;
+          const sku       = get('sku');
+          const nombre    = get('modelo') || get('nombre') || '';
+          const tela      = get('tela') || '';
+          const cantStr   = get('cantidad');
+          const qty       = Number.parseInt(cantStr, 10);
+          const cantidad  = Number.isFinite(qty) && qty > 0 ? qty : 1;
 
-          let it = items.find(i=>i.code===code);
+          const nowISO = new Date().toISOString();
+          const it = items.find(i => i.code === code);
 
           if(it){
-            // Actualizar datos
-            if(nombre) it.nombre = nombre;
-            if(tela)   it.tela   = tela;
-            if(sku)    it.sku    = sku;
+            it.nombre   = nombre || it.nombre;
+            it.tela     = tela   || it.tela;
+            it.sku      = sku    || it.sku;
+            it.cantidad = (Number(it.cantidad)||0) + cantidad;
+            actualizados++;
 
-            const before = parseInt(it.cantidad)||0;
-            if(colCant){
-              const delta = qty - before;
-              if(delta !== 0){
-                it.cantidad = qty;
-                moves.push({id: genId(),dateISO: nowISO, code: it.code, sku: it.sku, nombre: it.nombre, tela: it.tela, delta, type:'import'});
-                movesAdded++;
-              }
-            }else{
-              it.cantidad = before + 1;
-              moves.push({id: genId(),dateISO: nowISO, code: it.code, sku: it.sku, nombre: it.nombre, tela: it.tela, delta:+1, type:'import'});
-              movesAdded++;
-            }
-            updated++;
+            moves.push({
+              id: genId(),
+              dateISO: nowISO,
+              code: it.code,
+              sku: it.sku,
+              nombre: it.nombre,
+              tela: it.tela,
+              delta: +cantidad,
+              type: 'import'
+            });
+            movs++;
           }else{
-            const nuevo = {code, sku, nombre: nombre||'(Sin nombre)', tela: tela||'(Sin tela)', cantidad: colCant ? qty : 1, createdISO: nowISO};
-            items.push(nuevo);
-            if(nuevo.cantidad){
-              moves.push({id: genId(),dateISO: nowISO, code: nuevo.code, sku: nuevo.sku, nombre: nuevo.nombre, tela: nuevo.tela, delta:nuevo.cantidad, type:'import'});
-              movesAdded++;
-            }
-            created++;
+            items.push({
+              code,
+              sku,
+              nombre,
+              tela,
+              cantidad,
+              createdISO: nowISO
+            });
+            creados++;
+
+            moves.push({
+              id: genId(),
+              dateISO: nowISO,
+              code,
+              sku,
+              nombre,
+              tela,
+              delta: +cantidad,
+              type: 'import'
+            });
+            movs++;
           }
         });
 
@@ -1428,7 +1432,7 @@ document.getElementById('btnImportSession').addEventListener('click', ()=>{
         renderInventory();
         refreshLabelSelect();
 
-        alert(`Importación terminada.\nNuevos: ${created}\nActualizados: ${updated}\nMovimientos añadidos: ${movesAdded}`);
+        alert(`Importación terminada.\nCreados: ${creados}\nActualizados: ${actualizados}\nMovimientos: ${movs}`);
       }catch(err){
         console.error(err);
         alert("No se pudo leer el CSV. Verifica el formato.");
@@ -1438,7 +1442,6 @@ document.getElementById('btnImportSession').addEventListener('click', ()=>{
     reader.readAsText(file);
   });
 })();
-
 /* ===== Utilidades ===== */
 // === Helper para resetear <input type="file"> de forma segura ===
 function resetFileInput(el){
