@@ -288,6 +288,7 @@ button i { margin-right: 6px; }
   box-shadow: 0 4px 14px rgba(0,0,0,.08);
   font-family: Arial, sans-serif;
 }
+
 .label-title{
   font-size:18px;
   font-weight:800;
@@ -501,24 +502,28 @@ button i {
     <div id="snapshotsList" class="muted">No hay cortes guardados.</div>
   </section>
 
-  <!-- Etiquetas (BUSCADOR + SUGERENCIAS) -->
-  <section id="etiquetas" class="card hidden">
-    <h2>Etiquetas</h2>
-    <div class="row">
-      <input id="labelSearch" placeholder="Buscar por modelo, tela, SKU o código" oninput="renderLabelSuggestions()">
-      <button id="btnPrint">Imprimir etiqueta</button>
-    </div>
-    <div class="row">
-  <input id="labelCliente" placeholder="CLIENTE (opcional)">
-  <input id="labelDestino" placeholder="DESTINO (opcional)">
-</div>
-    <div id="labelSuggestions" class="muted" style="margin-top:6px">Escribe para ver sugerencias…</div>
-    <div id="previewWrap" style="margin-top:12px"></div>
-    <div class="muted" style="margin-top:6px">
-      Formato: Modelo (grande) · Tela · <b>SKU</b> · Fecha · Código de barras (KLL)
-    </div>
-  </section>
+<!-- Etiquetas (BUSCADOR + SUGERENCIAS) -->
+<section id="etiquetas" class="card hidden">
+  <h2>Etiquetas</h2>
 
+  <!-- fila de búsqueda + imprimir -->
+  <div class="row">
+    <input id="labelSearch" placeholder="Buscar por modelo, tela, SKU o código" oninput="renderLabelSuggestions()">
+    <button id="btnPrint">Imprimir etiqueta</button>
+  </div>
+
+  <!-- NUEVO: campos editables -->
+  <div class="row">
+    <input id="labelCliente" placeholder="CLIENTE (opcional)">
+    <input id="labelDestino" placeholder="DESTINO (opcional)">
+  </div>
+
+  <div id="labelSuggestions" class="muted" style="margin-top:6px">Escribe para ver sugerencias…</div>
+  <div id="previewWrap" style="margin-top:12px"></div>
+  <div class="muted" style="margin-top:6px">
+    Formato: Encabezado fijo · Cliente (editable) · Línea · Modelo · Tela · SKU · Destino (editable) · Fecha (impresión) · Código de barras con descripción.
+  </div>
+</section>
   <!-- Configuración y Herramientas -->
   <section id="config" class="card hidden">
     <h2>Configuración y Herramientas</h2>
@@ -1390,100 +1395,134 @@ function showPreview(){
   const it = items.find(i=>i.code===selectedLabelCode);
   if(!it){ wrap.innerHTML = '<div class="muted">Producto no encontrado.</div>'; return; }
 
-  // Usamos fecha de HOY para que coincida con la etiqueta impresa
-  const dateTxt = new Date().toLocaleDateString();
+  // valores editables
+  const cliente = (document.getElementById('labelCliente')?.value || "").trim();
+  const destino = (document.getElementById('labelDestino')?.value || "").trim();
 
+  // la fecha de la etiqueta en vista previa puede ser la de "impresión" (hoy)
+  const hoy = new Date();
+  const fechaImp = hoy.toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'numeric'});
+
+  // construye el layout nuevo (alineado con tu CSS .label-preview *)
   const div = document.createElement('div');
-  div.className="label-preview";
+  div.className = "label-preview";
   div.innerHTML = `
     <div class="head-flex">
       <div class="logo-col">
-      <img src="./assets/LOGO.PNG" class="label-logo" alt="Logo Muebles Krill">
+        <img src="assets/LOGO.PNG" alt="Logo Muebles Krill">
       </div>
       <div class="text-col">
         <div class="brand">MUEBLES KRILL S.A. DE C.V</div>
-        <div class="sub">CLIENTE:&nbsp;<span id="prevCliente"></span></div>
+        <div class="sub">CLIENTE: ${escapeHtml(cliente)}</div>
       </div>
     </div>
+
     <div class="divider"></div>
 
-    <div class="model">MODELO: ${escapeHtml(it.nombre)}</div>
-    <div class="fabric">TELA: ${escapeHtml(it.tela)}</div>
-    <div class="sku">SKU: ${escapeHtml(it.sku||'')}</div>
-    <div class="fabric">DESTINO: <span id="prevDestino"></span></div>
-    <div class="date">FECHA: ${escapeHtml(dateTxt)}</div>
+    <div class="label-row"><span class="k">MODELO:</span><span class="v">${escapeHtml(it.nombre || '')}</span></div>
+    <div class="label-row"><span class="k">TELA:</span><span class="v">${escapeHtml(it.tela || '')}</span></div>
+    <div class="label-row"><span class="k">SKU:</span><span class="v">${escapeHtml(it.sku || '')}</span></div>
+    <div class="label-row"><span class="k">DESTINO:</span><span class="v">${escapeHtml(destino)}</span></div>
+    <div class="label-row"><span class="k">FECHA:</span><span class="v">${escapeHtml(fechaImp)}</span></div>
 
-    <!-- Solo el código de barras con su descripción (texto bajo el código) -->
-    <svg id="barcodePrev"></svg>
+    <div class="barcode-wrap">
+      <svg id="barcodePrev"></svg>
+      <div class="code-text">${escapeHtml(it.code)}</div>
+    </div>
   `;
+
   wrap.appendChild(div);
 
-  // Generar el código de barras con texto (displayValue:true)
-  try{
-    JsBarcode("#barcodePrev", it.code, { format:"CODE128", width:2, height:60, displayValue:true });
-  }catch(e){}
+  try{JsBarcode("#barcodePrev", it.code, { format:"CODE128", width:2, height:60, displayValue:true });}catch(e){}
 }
+// === (Opcional) Vista previa en vivo al escribir CLIENTE/DESTINO ===
+(function bindLabelLivePreview(){
+  const cli = document.getElementById('labelCliente');
+  const des = document.getElementById('labelDestino');
+  if (cli) cli.addEventListener('input', showPreview);
+  if (des) des.addEventListener('input', showPreview);
+})();
 
 /* ===== Impresión de etiqueta (nuevo layout) ===== */
 document.getElementById('btnPrint').addEventListener('click', ()=>{
-  if(!selectedLabelCode){ alert("Primero busca y selecciona un producto de las sugerencias."); return; }
+  if(!selectedLabelCode){
+    alert("Primero busca y selecciona un producto de las sugerencias.");
+    return;
+  }
   const it = items.find(i=>i.code===selectedLabelCode);
   if(!it){ alert("Producto no encontrado"); return; }
 
-  const dateTxt = new Date().toLocaleDateString();
-  const w = window.open('', '', 'width=420,height=360');
+  const cliente = (document.getElementById('labelCliente')?.value || "").trim();
+  const destino = (document.getElementById('labelDestino')?.value || "").trim();
+  const hoy = new Date();
+  const fechaImp = hoy.toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'numeric'});
+
+  const w = window.open('', '', 'width=480,height=600');
   const html = `
-    <html><head><title>Etiqueta ${escapeHtml(it.code)}</title>
-    <style>
-      body{font-family:Arial, sans-serif; margin:0; padding:16px;}
-      .label-area{max-width:360px; margin:0 auto; text-align:left;}
-      .head-flex{display:flex; align-items:center; gap:10px;}
-      .logo-col{width:64px; flex:0 0 64px; display:flex; align-items:center;}
-      .logo-col img{max-width:100%; max-height:64px; object-fit:contain;}
-      .text-col{flex:1; min-width:0;}
-      .brand{font-size:18px; font-weight:800; letter-spacing:.3px;}
-      .sub{font-size:13px; margin-top:2px;}
-      .divider{height:2px; background:#111; margin:8px 0 10px; border-radius:2px;}
-      .line{font-size:14px; margin-top:2px;}
-      .model{font-size:20px; font-weight:700; margin-top:6px;}
-      svg{margin-top:10px; display:block;}
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
-    </head><body>
-      <div class="label-area">
+    <html>
+    <head>
+      <title>Etiqueta ${escapeHtml(it.code)}</title>
+      <style>
+        body{ font-family:Arial, sans-serif; margin:0; padding:16px; }
+        .label-preview{ border:1.5px solid #111; padding:16px 16px 12px; width:380px; background:#fff; border-radius:10px; margin:0 auto; }
+        .head-flex{ display:flex; align-items:center; gap:10px; }
+        .logo-col{ width:64px; flex:0 0 64px; display:flex; align-items:center; }
+        .logo-col img{ max-width:100%; max-height:64px; object-fit:contain; }
+        .text-col{ flex:1; min-width:0; }
+        .brand{ font-size:18px; font-weight:800; letter-spacing:.3px; }
+        .sub{ font-size:13px; margin-top:2px; }
+        .divider{ height:2px; background:#111; margin:8px 0 10px; border-radius:2px; }
+        .label-row{ display:flex; gap:8px; font-size:14px; margin:6px 0; align-items:flex-end; }
+        .label-row .k{ width:88px; font-weight:800; }
+        .label-row .v{ flex:1; min-height:18px; border-bottom:1px dotted #999; padding-bottom:2px; }
+        .barcode-wrap{ margin-top:12px; text-align:center; }
+        .code-text{ font-size:12px; margin-top:6px; letter-spacing:1px; }
+        @media print{
+          body{ margin:0; padding:0; }
+          .label-preview{ box-shadow:none; }
+        }
+      </style>
+      <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
+    </head>
+    <body>
+      <div class="label-preview">
         <div class="head-flex">
           <div class="logo-col">
-          <img src="./assets/LOGO.PNG" class="label-logo" alt="Logo Muebles Krill">
+            <img src="assets/LOGO.PNG" alt="Logo Muebles Krill">
           </div>
           <div class="text-col">
             <div class="brand">MUEBLES KRILL S.A. DE C.V</div>
-            <div class="sub">CLIENTE:&nbsp;</div>
+            <div class="sub">CLIENTE: ${escapeHtml(cliente)}</div>
           </div>
         </div>
+
         <div class="divider"></div>
 
-        <div class="model">MODELO: ${escapeHtml(it.nombre)}</div>
-        <div class="line">TELA: ${escapeHtml(it.tela)}</div>
-        <div class="line">SKU: ${escapeHtml(it.sku||'')}</div>
-        <div class="line">DESTINO: </div>
-        <div class="line">FECHA: ${escapeHtml(dateTxt)}</div>
+        <div class="label-row"><span class="k">MODELO:</span><span class="v">${escapeHtml(it.nombre || '')}</span></div>
+        <div class="label-row"><span class="k">TELA:</span><span class="v">${escapeHtml(it.tela || '')}</span></div>
+        <div class="label-row"><span class="k">SKU:</span><span class="v">${escapeHtml(it.sku || '')}</span></div>
+        <div class="label-row"><span class="k">DESTINO:</span><span class="v">${escapeHtml(destino)}</span></div>
+        <div class="label-row"><span class="k">FECHA:</span><span class="v">${escapeHtml(fechaImp)}</span></div>
 
-        <!-- Solo el código de barras con su descripción (texto bajo el código) -->
-        <svg id="b"></svg>
+        <div class="barcode-wrap">
+          <svg id="b"></svg>
+          <div class="code-text">${escapeHtml(it.code)}</div>
+        </div>
       </div>
+
       <script>
         try{
-          JsBarcode("#b","${escapeJs(it.code)}",{format:"CODE128",width:2,height:60,displayValue:true});
+          JsBarcode("#b","${escapeJs(it.code)}",{ format:"CODE128", width:2, height:60, displayValue:true });
         }catch(e){}
-        window.onload=function(){window.print();}
+        window.onload = function(){ window.print(); }
       <\/script>
-    </body></html>
+    </body>
+    </html>
   `;
   w.document.write(html);
   w.document.close();
   w.focus();
 });
-
 /* ===== Botones de +1 / +N en pestaña Escanear ===== */
 document.getElementById('btnPlus1').addEventListener('click', ()=>{
   const code = document.getElementById('scanCode').value.trim();
