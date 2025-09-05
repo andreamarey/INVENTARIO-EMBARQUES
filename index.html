@@ -1222,46 +1222,53 @@ let resumeTimer = null;
 document.getElementById('btnStart').addEventListener('click', startScanner);
 document.getElementById('btnStop').addEventListener('click', stopScanner);
 
-async function startScanner(){
-  if (h5) return;
+async function initCameras(){
+  const select  = document.getElementById('cameraSelect');
+  const btnStart = document.getElementById('btnStart');
+  if (!select) return;
 
-  // Revalida que el deviceId exista
-  let camId = currentCamId;
-  try {
-    const cams = await Html5Qrcode.getCameras();
-    const ids = (cams||[]).map(c=>c.id);
-    if (!ids.includes(camId)) {
-      camId = ids[0]; // toma la primera disponible
-      currentCamId = camId || null;
-    }
-  } catch(_) {
-    camId = null;
-  }
-
-  if(!camId){
-    alert("No hay cámaras disponibles o permiso denegado.\nPuedes seguir usando el escáner USB (modo teclado).");
-    return;
-  }
-
-  h5 = new Html5Qrcode("reader");
-  const formats = [
-    Html5QrcodeSupportedFormats.QR_CODE,
-    Html5QrcodeSupportedFormats.CODE_128,
-    Html5QrcodeSupportedFormats.CODE_39,
-    Html5QrcodeSupportedFormats.EAN_13
-  ];
+  // Limpia estado
+  select.innerHTML = "";
+  btnStart?.setAttribute('disabled','');
 
   try{
-    await h5.start(
-      { deviceId: { exact: camId } },
-      { fps:10, qrbox:250, formatsToSupport:formats },
-      onScanSuccess,
-      onScanFailure
-    );
+    const cams = await Html5Qrcode.getCameras();
+
+    if (!cams || cams.length === 0){
+      // Sin cámaras
+      const opt = document.createElement('option');
+      opt.value = ""; opt.textContent = "Sin cámaras detectadas";
+      select.appendChild(opt);
+      currentCamId = null;
+      return;
+    }
+
+    // Poblar lista
+    cams.forEach(c=>{
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.label || c.id;
+      select.appendChild(opt);
+    });
+
+    // Elegir trasera si existe
+    const rear = cams.find(c=>/back|rear|trase|environment/i.test(c.label||""));
+    currentCamId = (rear ? rear.id : cams[0].id);
+    select.value = currentCamId;
+
+    // Habilitar botón iniciar
+    btnStart?.removeAttribute('disabled');
+
+    // Cambio de cámara
+    select.onchange = ()=>{
+      currentCamId = select.value || null;
+      if (h5){ stopScanner(); startScanner(); }
+    };
   }catch(e){
-    console.error(e);
-    alert("No pude iniciar la cámara. Revisa permisos, que no esté en uso por otra app, o prueba otro navegador.");
-    h5 = null;
+    console.warn(e);
+    const opt = document.createElement('option');
+    opt.value = ""; opt.textContent = "No se pudo acceder a cámaras";
+    select.appendChild(opt);
+    currentCamId = null;
   }
 }
 async function startScanner(){
