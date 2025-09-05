@@ -670,35 +670,49 @@ function saveAll(){
   localStorage.setItem('snapshots_simple', JSON.stringify(snapshots));
 }
 
-/* ===== Cambio de pestañas (protegido) ===== */
-document.querySelectorAll('.tab-btn').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    // 1) estado visual de los botones
-    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
+/* ===== Cambio de pestañas (blindado) ===== */
+(function setupTabs(){
+  const tabs = document.querySelectorAll('.tab-btn');
+  const sections = document.querySelectorAll('section');
 
-    // 2) ocultar todas las secciones (solo las .card)
-    document.querySelectorAll('section.card').forEach(s=>s.classList.add('hidden'));
-
-    // 3) mostrar la sección destino
-    const sec = document.getElementById(btn.dataset.tab);
+  function showTab(id){
+    sections.forEach(s => s.classList.add('hidden'));
+    const sec = document.getElementById(id);
     if (sec) sec.classList.remove('hidden');
+  }
 
-    // 4) hooks por pestaña
-    if (btn.dataset.tab==='etiquetas') {
-      if (typeof refreshLabelSelect === 'function') refreshLabelSelect();
-    }
-    if (btn.dataset.tab==='escanear'){
-      if (typeof initCameras === 'function') initCameras();
-    } else {
-      if (typeof stopScanner === 'function') stopScanner();
-    }
-    if (btn.dataset.tab==='conteo'){
-      if (typeof renderCountEditor==='function') renderCountEditor();
-      if (typeof renderSnapshotsList==='function') renderSnapshotsList();
-    }
+  tabs.forEach(btn=>{
+    btn.addEventListener('click', (ev)=>{
+      try{
+        tabs.forEach(b=>b.classList.remove('active'));
+        ev.currentTarget.classList.add('active');
+
+        const id = ev.currentTarget.dataset.tab;
+        showTab(id);
+
+        // No auto-cámara para evitar errores que bloqueen el JS.
+        if (id !== 'escanear') {
+          try{ if (typeof stopScanner === 'function') stopScanner(); }catch(_){}
+        }
+
+        if (id === 'etiquetas'){
+          try{ if (typeof refreshLabelSelect === 'function') refreshLabelSelect(); }catch(_){}
+        }
+        if (id === 'conteo'){
+          try{ if (typeof renderCountEditor === 'function') renderCountEditor(); }catch(_){}
+          try{ if (typeof renderSnapshotsList === 'function') renderSnapshotsList(); }catch(_){}
+        }
+      }catch(err){
+        console.error('Error al cambiar de pestaña:', err);
+        alert('Error al cambiar de pestaña: ' + (err?.message || err));
+      }
+    });
   });
-});
+
+  // Asegura que la pestaña marcada como activa se muestre al cargar
+  const firstActive = document.querySelector('.tab-btn.active');
+  if (firstActive) showTab(firstActive.dataset.tab);
+})();
 /* ===== Registrar ===== */
 document.getElementById('btnGenerate').addEventListener('click', ()=>{
   const nombre = document.getElementById('newName').value.trim();
