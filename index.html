@@ -1444,6 +1444,7 @@ function showPreview(){
 })();
 
 /* ===== Impresión de etiqueta ===== */
+/* ===== Impresión de etiqueta (4x6" horizontal, logo en mm, textos 24pt) ===== */
 document.getElementById('btnPrint').addEventListener('click', ()=>{
   if(!selectedLabelCode){
     alert("Primero busca y selecciona un producto de las sugerencias.");
@@ -1457,78 +1458,153 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   const hoy = new Date();
   const fechaImp = hoy.toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'numeric'});
 
-  const w = window.open('', '', 'width=480,height=600');
+  // Ventana de impresión
+  const w = window.open('', '', 'width=900,height=700');
+
   const html = `
     <html>
     <head>
       <title>Etiqueta ${escapeHtml(it.code)}</title>
       <style>
-        /* Quita márgenes del diálogo de impresión */
-        @page { size:auto; margin:0; }
-        html,body{ margin:0; padding:0; }
-        body{ font-family:Arial, sans-serif; }
+        /* Página 4x6" en horizontal: 152.4mm × 101.6mm */
+        @page { size: 152.4mm 101.6mm; margin: 0; }
+        html, body { margin:0; padding:0; }
+        body {
+          width: 152.4mm; height: 101.6mm;
+          font-family: Arial, sans-serif;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
 
-        .print-wrap{ padding:16px; }
-        .label{ border:1.5px solid #111; padding:16px 16px 12px; width:380px; background:#fff; border-radius:10px; margin:0 auto; }
+        /* Lienzo con relleno interno */
+        .page {
+          position: relative;
+          width: 152.4mm; height: 101.6mm;
+          box-sizing: border-box;
+          padding: 6mm 8mm; /* respirito */
+        }
 
-        .head-flex{ display:flex; align-items:center; gap:10px; }
-        .logo-col{ width:64px; flex:0 0 64px; display:flex; align-items:center; }
-        .logo-col img{ max-width:100%; max-height:64px; object-fit:contain; }
-        .text-col{ flex:1; min-width:0; }
-        .brand{ font-size:18px; font-weight:800; letter-spacing:.3px; }
-        .sub{ font-size:13px; margin-top:2px; } /* CLIENTE: */
-        .divider{ height:2px; background:#111; margin:8px 0 10px; border-radius:2px; }
+        /* Logo: 25.9mm × 35mm, arriba-izquierda */
+        .logo {
+          position: absolute;
+          top: 6mm; left: 8mm;
+          width: 25.9mm; height: 35mm;
+          object-fit: contain;
+        }
 
-        .row{ display:flex; gap:8px; font-size:14px; margin:6px 0; align-items:flex-end; }
-        .row .k{ width:88px; font-weight:800; }
-        .row .v{ flex:1; min-height:18px; border-bottom:1px dotted #999; padding-bottom:2px; }
+        /* Encabezados centrados */
+        .header {
+          text-align: center;
+          /* desplazamos visualmente para que el logo no tape el centro */
+          padding-left: 35mm; /* mayor que el ancho del logo para balancear */
+        }
+        .brand {
+          font-weight: 700;    /* Arial Bold */
+          font-size: 24pt;
+          line-height: 1.05;
+        }
+        .cliente {
+          font-weight: 700;    /* Arial Bold */
+          font-size: 24pt;
+          line-height: 1.05;
+          margin-top: 1mm;
+          word-break: break-word;
+        }
 
-        .barcode{ margin-top:12px; text-align:center; }
-        .code-text{ font-size:12px; margin-top:6px; letter-spacing:1px; }
+        /* Línea divisoria 2px */
+        .divider {
+          height: 2px; background: #000;
+          margin: 3mm 0 4mm;
+          border-radius: 2px;
+        }
 
-        @media print{
-          .label{ box-shadow:none; }
+        /* Bloque de campos (centrado en la página) */
+        .rows {
+          width: calc(100% - 16mm);  /* respeta padding lateral */
+          margin: 0 auto;
+        }
+        .row {
+          display: flex;
+          justify-content: center;   /* todo centrado como pediste */
+          gap: 3mm;
+          align-items: baseline;
+          margin: 1mm 0;
+          flex-wrap: wrap;           /* por si el texto es largo */
+        }
+        .k {
+          font-weight: 700;          /* “encabezados” a 24 pt negrita */
+          font-size: 24pt;
+        }
+        .v {
+          font-size: 24pt;           /* valor a 24 pt regular */
+          min-width: 40mm;           /* deja “hueco” visible si está vacío */
+          text-align: left;
+          word-break: break-word;
+        }
+
+        /* Código de barras centrado y ajustado */
+        .barcode {
+          margin-top: 4mm;
+          text-align: center;
+        }
+        .barcode svg {
+          width: 100%;               /* ocupa todo el ancho útil */
+          height: 38mm;              /* alto grande, ajustable */
+        }
+        .code-text {
+          font-size: 14pt;
+          margin-top: 1mm;
+          letter-spacing: 1px;
+        }
+
+        @media print {
+          .page { padding: 6mm 8mm; }
         }
       </style>
       <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
     </head>
     <body>
-      <div class="print-wrap">
-        <div class="label">
-          <div class="head-flex">
-            <div class="logo-col">
-              <img src="assets/LOGO.PNG" alt="Logo Muebles Krill">
-            </div>
-            <div class="text-col">
-              <div class="brand">MUEBLES KRILL S.A. DE C.V</div>
-              <div class="sub">CLIENTE: ${escapeHtml(cliente)}</div>
-            </div>
-          </div>
+      <div class="page">
+        <!-- Logo -->
+        <img class="logo" src="assets/LOGO.PNG" alt="Logo Muebles Krill">
 
-          <div class="divider"></div>
+        <!-- Encabezado -->
+        <div class="header">
+          <div class="brand">MUEBLES KRILL S.A. DE C.V</div>
+          <div class="cliente">CLIENTE: ${escapeHtml(cliente)}</div>
+        </div>
 
-          <div class="row"><div class="k">MODELO:</div> <div class="v">${escapeHtml(it.nombre)}</div></div>
-          <div class="row"><div class="k">TELA:</div>   <div class="v">${escapeHtml(it.tela)}</div></div>
-          <div class="row"><div class="k">SKU:</div>    <div class="v">${escapeHtml(it.sku||'')}</div></div>
-          <div class="row"><div class="k">DESTINO:</div><div class="v">${escapeHtml(destino)}</div></div>
-          <div class="row"><div class="k">FECHA:</div>  <div class="v">${escapeHtml(fechaImp)}</div></div>
+        <div class="divider"></div>
 
-          <div class="barcode">
-            <svg id="b"></svg>
-            <div class="code-text">${escapeHtml(it.code)}</div>
-          </div>
+        <!-- Campos en orden y centrados -->
+        <div class="rows">
+          <div class="row"><span class="k">MODELO:</span><span class="v">${escapeHtml(it.nombre)}</span></div>
+          <div class="row"><span class="k">TELA:</span><span class="v">${escapeHtml(it.tela)}</span></div>
+          <div class="row"><span class="k">SKU:</span><span class="v">${escapeHtml(it.sku||'')}</span></div>
+          <div class="row"><span class="k">DESTINO:</span><span class="v">${escapeHtml(destino)}</span></div>
+          <div class="row"><span class="k">FECHA:</span><span class="v">${escapeHtml(fechaImp)}</span></div>
+        </div>
+
+        <!-- Código de barras centrado y ancho completo -->
+        <div class="barcode">
+          <svg id="b"></svg>
+          <div class="code-text">${escapeHtml(it.code)}</div>
         </div>
       </div>
 
       <script>
-        // Genera el código y lanza la impresión
         window.onload = function(){
           try{
             JsBarcode("#b","${escapeJs(it.code)}",{
               format:"CODE128",
-              width:2,
-              height:60,
-              displayValue:true
+              /* El SVG ya ocupa 100% de ancho; este “width” es el grosor de barra.
+                 Si las barras se ven muy finas o muy gruesas, ajusta 1.5–3. */
+              width: 2,
+              /* La altura real la definimos por CSS (38mm) para que se ajuste a la página */
+              displayValue: true,
+              font: "Arial",
+              fontOptions: "",
+              fontSize: 12  /* texto pequeño dentro del propio barcode */
             });
           }catch(e){}
           window.print();
@@ -1537,10 +1613,12 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
     </body>
     </html>
   `;
+
   w.document.write(html);
   w.document.close();
   w.focus();
 });
+
 /* ===== Botones de +1 / +N en pestaña Escanear ===== */
 document.getElementById('btnPlus1').addEventListener('click', ()=>{
   const code = document.getElementById('scanCode').value.trim();
