@@ -1481,7 +1481,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
           position: relative;
           width: 152.4mm; height: 101.6mm;
           box-sizing: border-box;
-          padding: 6mm 8mm; /* respirito */
+          padding: 4mm 6mm; /* respirito */
         }
 
       /* LOGO: 25.9 mm × 35 mm, arriba-izquierda */
@@ -1503,19 +1503,18 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
 }
 
 .brand{
-  font-weight: 700;
-  font-size: 24pt;
+  font-weight: 700;   /* Arial Bold */
+  font-size: 22pt;    /* ↓ antes 24pt: así aseguramos UNA sola línea */
   line-height: 1;
-  white-space: nowrap; /* una sola línea */
-  letter-spacing: 0;   /* sin extra espacio para que quepa */
+  white-space: nowrap;/* fuerza una sola línea */
 }
-        .cliente {
-          font-weight: 700;    /* Arial Bold */
-          font-size: 24pt;
-          line-height: 1.05;
-          margin-top: 1mm;
-          word-break: break-word;
-        }
+.cliente{
+  font-weight: 700;   /* Arial Bold */
+  font-size: 22pt;    /* ↓ antes 24pt */
+  line-height: 1.05;
+  margin-top: 0.5mm;  /* ↓ antes 1mm: ganamos altura */
+  word-break: break-word;
+}
 
         /* Línea divisoria 2px */
         .divider {
@@ -1532,18 +1531,18 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
      .row{
   display:flex;
   justify-content:center;
-  gap:3mm;
+  gap:2mm;             /* ↓ antes 3mm */
   align-items:baseline;
-  margin:1mm 0;
+  margin:0.5mm 0;      /* ↓ antes 1mm */
   flex-wrap:wrap;
 }
 .k{
-  font: 700 24pt Arial, sans-serif; /* negrita 24pt */
+  font: 700 20pt Arial, sans-serif; /* ↓ antes 24pt */
   letter-spacing:.2pt;
 }
 .v{
-  font: 400 22pt Arial, sans-serif; /* valor 22pt (sube a 24pt si quieres) */
-  min-width:40mm;
+  font: 400 20pt Arial, sans-serif; /* ↑ o ↓ según te guste; antes 22pt */
+  min-width:36mm;                   /* ↓ antes 40mm para ganar espacio */
   text-align:left;
   word-break:break-word;
 }
@@ -1554,8 +1553,8 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
           text-align: center;
         }
         .barcode svg {
-          width: 100%;               /* ocupa todo el ancho útil */
-          height: 38mm;              /* alto grande, ajustable */
+          width: 110%;               /* ocupa todo el ancho útil */
+          height: 30mm;              /* alto grande, ajustable */
         }
         .code-text {
           font-size: 14pt;
@@ -1564,7 +1563,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
         }
 
         @media print {
-          .page { padding: 6mm 8mm; }
+          .page { padding: 4mm 6mm; }
         }
       </style>
       <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
