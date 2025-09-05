@@ -278,17 +278,59 @@ button i { margin-right: 6px; }
   background: var(--row-hover);
 }
 
-/* =====================  Etiqueta / vista previa  ===================== */
+/* =====================  Etiqueta / vista previa  (NUEVO LAYOUT) ===================== */
 .label-preview{
   border:1.5px solid #111;
-  padding:14px;
-  width:340px;
+  padding:16px 16px 12px;
+  width:380px;             /* un poco más ancha para el contenido */
   background:#fff;
   border-radius:10px;
   box-shadow: 0 4px 14px rgba(0,0,0,.08);
+  font-family: Arial, sans-serif;
 }
-.model{ font-size:20px; font-weight:700; }
-.fabric,.sku,.date{ font-size:14px; margin-top:2px; }
+.label-title{
+  font-size:18px;
+  font-weight:800;
+  text-align:center;
+  letter-spacing:.5px;
+  margin:0 0 6px;
+}
+.label-sub{
+  font-size:14px;
+  font-weight:600;
+  margin:0 0 8px;
+}
+.label-divider{
+  height:2px;
+  background:#111;
+  margin:6px 0 10px;
+}
+.label-row{
+  display:flex;
+  gap:8px;
+  font-size:14px;
+  margin:6px 0;
+  align-items:flex-end;
+}
+.label-row .k{
+  width:88px;             /* ancho fijo para alinear llaves */
+  font-weight:800;
+}
+.label-row .v{
+  flex:1;
+  min-height:18px;        /* deja ver el espacio aunque esté vacío */
+  border-bottom:1px dotted #999;
+  padding-bottom:2px;
+}
+.barcode-wrap{
+  margin-top:12px;
+  text-align:center;
+}
+.code-text{
+  font-size:12px;
+  margin-top:6px;
+  letter-spacing:1px;
+}
 
 /* =====================  Tarjetas de historial  ===================== */
 .group{ margin:12px 0 }
@@ -456,6 +498,10 @@ button i {
       <input id="labelSearch" placeholder="Buscar por modelo, tela, SKU o código" oninput="renderLabelSuggestions()">
       <button id="btnPrint">Imprimir etiqueta</button>
     </div>
+    <div class="row">
+  <input id="labelCliente" placeholder="CLIENTE (opcional)">
+  <input id="labelDestino" placeholder="DESTINO (opcional)">
+</div>
     <div id="labelSuggestions" class="muted" style="margin-top:6px">Escribe para ver sugerencias…</div>
     <div id="previewWrap" style="margin-top:12px"></div>
     <div class="muted" style="margin-top:6px">
@@ -511,6 +557,8 @@ let prefs = { beep:true, vibrate:true };
 let snapshots = []; // [{id,label,createdISO,totals:[{code,sku,nombre,tela,cantidad}],notes?}]
 let countBuffer = []; // buffer de conteo
 let selectedLabelCode = null; // Etiquetas (buscador)
+let labelCliente = "";
+let labelDestino = "";
 
 /* ===== Cargar ===== */
 (function load(){
@@ -1231,13 +1279,30 @@ document.getElementById('prefVibrate').addEventListener('change', (e)=>{ prefs.v
 /* ===== Etiquetas — Buscador con sugerencias ===== */
 function refreshLabelSelect(){ // resetea buscador al entrar a la pestaña
   selectedLabelCode = null;
+  labelCliente = "";
+  labelDestino = "";
+
   const s = document.getElementById('labelSearch');
   const box = document.getElementById('labelSuggestions');
   const prev = document.getElementById('previewWrap');
+  const c = document.getElementById('labelCliente');
+  const d = document.getElementById('labelDestino');
+
   if (s) s.value = "";
   if (box) box.innerHTML = 'Escribe para ver sugerencias…';
   if (prev) prev.innerHTML = '';
+  if (c) c.value = "";
+  if (d) d.value = "";
 }
+// Mantiene CLIENTE y DESTINO sincronizados con la vista previa
+document.getElementById('labelCliente')?.addEventListener('input', (e)=>{
+  labelCliente = e.target.value;
+  if (selectedLabelCode) showPreview();
+});
+document.getElementById('labelDestino')?.addEventListener('input', (e)=>{
+  labelDestino = e.target.value;
+  if (selectedLabelCode) showPreview();
+});
 function renderLabelSuggestions(){
   const box = document.getElementById('labelSuggestions');
   const q = (document.getElementById('labelSearch')?.value || "").toLowerCase().trim();
@@ -1281,49 +1346,125 @@ function showPreview(){
   const it = items.find(i=>i.code===selectedLabelCode);
   if(!it){ wrap.innerHTML = '<div class="muted">Producto no encontrado.</div>'; return; }
 
-  const dateTxt = it.createdISO ? new Date(it.createdISO).toLocaleDateString() : "";
+  // FECHA de impresión (lo que se ve y lo que luego se imprimirá)
+  const dateTxt = formatDateDDMMYYYY(new Date());
+
+  // Construye la vista previa con el orden solicitado
   const div = document.createElement('div');
   div.className="label-preview";
   div.innerHTML = `
-    <div class="model">${escapeHtml(it.nombre)}</div>
-    <div class="fabric">Tela: ${escapeHtml(it.tela)}</div>
-    <div class="sku">SKU: ${escapeHtml(it.sku||'')}</div>
-    <div class="date">${escapeHtml(dateTxt)}</div>
-    <svg id="barcodePrev"></svg>
+    <div class="label-title">MUEBLES KRILL S.A. DE C.V</div>
+    <div class="label-sub">CLIENTE: ${escapeHtml(labelCliente)}</div>
+    <div class="label-divider"></div>
+
+    <div class="label-row">
+      <div class="k">MODELO:</div>
+      <div class="v">${escapeHtml(it.nombre)}</div>
+    </div>
+    <div class="label-row">
+      <div class="k">TELA:</div>
+      <div class="v">${escapeHtml(it.tela)}</div>
+    </div>
+    <div class="label-row">
+      <div class="k">SKU:</div>
+      <div class="v">${escapeHtml(it.sku||'')}</div>
+    </div>
+    <div class="label-row">
+      <div class="k">DESTINO:</div>
+      <div class="v">${escapeHtml(labelDestino)}</div>
+    </div>
+    <div class="label-row">
+      <div class="k">FECHA:</div>
+      <div class="v">${escapeHtml(dateTxt)}</div>
+    </div>
+
+    <div class="barcode-wrap">
+      <svg id="barcodePrev"></svg>
+    </div>
   `;
   wrap.appendChild(div);
-  try{ JsBarcode("#barcodePrev", it.code, {format:"CODE128", width:2, height:60, displayValue:true}); }catch(e){}
+
+  // Código de barras con descripción (displayValue muestra el KLL debajo)
+  try{
+    JsBarcode("#barcodePrev", it.code, {
+      format:"CODE128",
+      width:2,
+      height:60,
+      displayValue:true,
+      fontSize: 14,
+      margin: 6
+    });
+  }catch(e){}
 }
 
-/* ===== Impresión de etiqueta ===== */
+/* ===== Impresión de etiqueta (nuevo layout) ===== */
 document.getElementById('btnPrint').addEventListener('click', ()=>{
   if(!selectedLabelCode){ alert("Primero busca y selecciona un producto de las sugerencias."); return; }
   const it = items.find(i=>i.code===selectedLabelCode);
   if(!it){ alert("Producto no encontrado"); return; }
-const dateTxt = new Date().toLocaleDateString();
-  const w = window.open('', '', 'width=420,height=360');
+
+  const dateTxt = formatDateDDMMYYYY(new Date());
+
+  const w = window.open('', '', 'width=480,height=640');
   const html = `
     <html><head><title>Etiqueta ${escapeHtml(it.code)}</title>
     <style>
-      body{font-family:Arial, sans-serif; margin:0; padding:16px; text-align:center}
-      .model{font-size:20px; font-weight:700}
-      .fabric{font-size:14px; margin-top:2px}
-      .sku{font-size:14px; margin-top:2px}
-      .date{font-size:14px; margin-top:2px}
-      svg{margin-top:10px}
+      body{font-family:Arial, sans-serif; margin:0; padding:16px;}
+      .label-title{font-size:18px; font-weight:800; text-align:center; letter-spacing:.5px; margin:0 0 6px;}
+      .label-sub{font-size:14px; font-weight:600; margin:0 0 8px;}
+      .label-divider{height:2px; background:#111; margin:6px 0 10px;}
+      .label-row{display:flex; gap:8px; font-size:14px; margin:6px 0; align-items:flex-end;}
+      .label-row .k{width:88px; font-weight:800;}
+      .label-row .v{flex:1; min-height:18px; border-bottom:1px dotted #999; padding-bottom:2px;}
+      .barcode-wrap{text-align:center; margin-top:12px;}
+      svg{margin-top:6px;}
+      @media print {
+        body{padding:8mm;}
+      }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
     </head><body>
-      <div class="model">${escapeHtml(it.nombre)}</div>
-      <div class="fabric">Tela: ${escapeHtml(it.tela)}</div>
-      <div class="sku">SKU: ${escapeHtml(it.sku||'')}</div>
-      <div class="date">${escapeHtml(dateTxt)}</div>
-      <svg id="b"></svg>
+      <div class="label-title">MUEBLES KRILL S.A. DE C.V</div>
+      <div class="label-sub">CLIENTE: ${escapeHtml(labelCliente)}</div>
+      <div class="label-divider"></div>
+
+      <div class="label-row">
+        <div class="k">MODELO:</div>
+        <div class="v">${escapeHtml(it.nombre)}</div>
+      </div>
+      <div class="label-row">
+        <div class="k">TELA:</div>
+        <div class="v">${escapeHtml(it.tela)}</div>
+      </div>
+      <div class="label-row">
+        <div class="k">SKU:</div>
+        <div class="v">${escapeHtml(it.sku||'')}</div>
+      </div>
+      <div class="label-row">
+        <div class="k">DESTINO:</div>
+        <div class="v">${escapeHtml(labelDestino)}</div>
+      </div>
+      <div class="label-row">
+        <div class="k">FECHA:</div>
+        <div class="v">${escapeHtml(dateTxt)}</div>
+      </div>
+
+      <div class="barcode-wrap">
+        <svg id="b"></svg>
+      </div>
+
       <script>
         try{
-          JsBarcode("#b","${escapeJs(it.code)}",{format:"CODE128",width:2,height:60,displayValue:true});
+          JsBarcode("#b","${escapeJs(it.code)}",{
+            format:"CODE128",
+            width:2,
+            height:60,
+            displayValue:true,
+            fontSize:14,
+            margin:6
+          });
         }catch(e){}
-        window.onload=function(){window.print();}
+        window.onload=function(){ window.print(); }
       <\/script>
     </body></html>
   `;
@@ -1591,6 +1732,12 @@ function flashScan(ok, msg){
   clearTimeout(el._hide2);
   el._hide1 = setTimeout(()=>{ el.style.opacity = '0'; }, 700);
   el._hide2 = setTimeout(()=>{ el.style.display = 'none'; }, 1000);
+}
+function formatDateDDMMYYYY(d){
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 }
 function downloadCSV(filename, headers, rows){
   const csv = headers.join(",")+"\n"+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
