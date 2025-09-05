@@ -1444,6 +1444,7 @@ function showPreview(){
 })();
 
 /* ===== Impresión de etiqueta (nuevo layout) ===== */
+<script>
 document.getElementById('btnPrint').addEventListener('click', ()=>{
   if(!selectedLabelCode){
     alert("Primero busca y selecciona un producto de las sugerencias.");
@@ -1463,58 +1464,76 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
     <head>
       <title>Etiqueta ${escapeHtml(it.code)}</title>
       <style>
-        body{ font-family:Arial, sans-serif; margin:0; padding:16px; }
-        .label-preview{ border:1.5px solid #111; padding:16px 16px 12px; width:380px; background:#fff; border-radius:10px; margin:0 auto; }
+        /* Elimina márgenes del diálogo de impresión */
+        @page { size:auto; margin:0; }
+        html,body{ margin:0; padding:0; }
+        body{ font-family:Arial, sans-serif; }
+
+        .print-wrap{ padding:16px; }
+        .label{ border:1.5px solid #111; padding:16px 16px 12px; width:380px; background:#fff; border-radius:10px; margin:0 auto; }
+
         .head-flex{ display:flex; align-items:center; gap:10px; }
         .logo-col{ width:64px; flex:0 0 64px; display:flex; align-items:center; }
         .logo-col img{ max-width:100%; max-height:64px; object-fit:contain; }
         .text-col{ flex:1; min-width:0; }
         .brand{ font-size:18px; font-weight:800; letter-spacing:.3px; }
-        .sub{ font-size:13px; margin-top:2px; }
+        .sub{ font-size:13px; margin-top:2px; } /* CLIENTE: */
         .divider{ height:2px; background:#111; margin:8px 0 10px; border-radius:2px; }
-        .label-row{ display:flex; gap:8px; font-size:14px; margin:6px 0; align-items:flex-end; }
-        .label-row .k{ width:88px; font-weight:800; }
-        .label-row .v{ flex:1; min-height:18px; border-bottom:1px dotted #999; padding-bottom:2px; }
-        .barcode-wrap{ margin-top:12px; text-align:center; }
+
+        .row{ display:flex; gap:8px; font-size:14px; margin:6px 0; align-items:flex-end; }
+        .row .k{ width:88px; font-weight:800; }
+        .row .v{ flex:1; min-height:18px; border-bottom:1px dotted #999; padding-bottom:2px; }
+
+        .barcode{ margin-top:12px; text-align:center; }
         .code-text{ font-size:12px; margin-top:6px; letter-spacing:1px; }
+
         @media print{
-          body{ margin:0; padding:0; }
-          .label-preview{ box-shadow:none; }
+          .label{ box-shadow:none; }
         }
       </style>
       <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
     </head>
     <body>
-      <div class="label-preview">
-        <div class="head-flex">
-          <div class="logo-col">
-            <img src="assets/LOGO.PNG" alt="Logo Muebles Krill">
+      <div class="print-wrap">
+        <div class="label">
+          <div class="head-flex">
+            <div class="logo-col">
+              <img src="assets/LOGO.PNG" alt="Logo Muebles Krill">
+            </div>
+            <div class="text-col">
+              <div class="brand">MUEBLES KRILL S.A. DE C.V</div>
+              <div class="sub">CLIENTE: ${escapeHtml(cliente)}</div>
+            </div>
           </div>
-          <div class="text-col">
-            <div class="brand">MUEBLES KRILL S.A. DE C.V</div>
-            <div class="sub">CLIENTE: ${escapeHtml(cliente)}</div>
+
+          <div class="divider"></div>
+
+          <div class="row"><div class="k">MODELO:</div> <div class="v">${escapeHtml(it.nombre)}</div></div>
+          <div class="row"><div class="k">TELA:</div>   <div class="v">${escapeHtml(it.tela)}</div></div>
+          <div class="row"><div class="k">SKU:</div>    <div class="v">${escapeHtml(it.sku||'')}</div></div>
+          <div class="row"><div class="k">DESTINO:</div><div class="v">${escapeHtml(destino)}</div></div>
+          <div class="row"><div class="k">FECHA:</div>  <div class="v">${escapeHtml(fechaImp)}</div></div>
+
+          <div class="barcode">
+            <svg id="b"></svg>
+            <div class="code-text">${escapeHtml(it.code)}</div>
           </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="label-row"><span class="k">MODELO:</span><span class="v">${escapeHtml(it.nombre || '')}</span></div>
-        <div class="label-row"><span class="k">TELA:</span><span class="v">${escapeHtml(it.tela || '')}</span></div>
-        <div class="label-row"><span class="k">SKU:</span><span class="v">${escapeHtml(it.sku || '')}</span></div>
-        <div class="label-row"><span class="k">DESTINO:</span><span class="v">${escapeHtml(destino)}</span></div>
-        <div class="label-row"><span class="k">FECHA:</span><span class="v">${escapeHtml(fechaImp)}</span></div>
-
-        <div class="barcode-wrap">
-          <svg id="b"></svg>
-          <div class="code-text">${escapeHtml(it.code)}</div>
         </div>
       </div>
 
       <script>
-        try{
-          JsBarcode("#b","${escapeJs(it.code)}",{ format:"CODE128", width:2, height:60, displayValue:true });
-        }catch(e){}
-        window.onload = function(){ window.print(); }
+        // Genera el código y manda a imprimir sin márgenes
+        window.onload = function(){
+          try{
+            JsBarcode("#b","${escapeJs(it.code)}",{
+              format:"CODE128",
+              width:2,
+              height:60,
+              displayValue:true
+            });
+          }catch(e){}
+          window.print();
+        };
       <\/script>
     </body>
     </html>
@@ -1523,6 +1542,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   w.document.close();
   w.focus();
 });
+</script>
 /* ===== Botones de +1 / +N en pestaña Escanear ===== */
 document.getElementById('btnPlus1').addEventListener('click', ()=>{
   const code = document.getElementById('scanCode').value.trim();
