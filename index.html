@@ -1484,13 +1484,15 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
           padding: 6mm 8mm; /* respirito */
         }
 
-        /* Logo: 25.9mm × 35mm, arriba-izquierda */
-        .logo {
-          position: absolute;
-          top: 6mm; left: 8mm;
-          width: 25.9mm; height: 35mm;
-          object-fit: contain;
-        }
+      /* LOGO: 25.9 mm × 35 mm, arriba-izquierda */
+.logo{
+  position: absolute;
+  left: 6mm;         /* margen izquierdo */
+  top: 9mm;          /* <- AJUSTE FINO: súbelo/bájalo aquí */
+  width: 27mm;
+  height: 37mm;
+  object-fit: contain;
+}
 
         /* Encabezados centrados */
        .header {
@@ -1539,7 +1541,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
           font-size: 24pt;
         }
         .v {
-          font-size: 24pt;           /* valor a 24 pt regular */
+          font-size: 22pt;           /* valor a 24 pt regular */
           min-width: 40mm;           /* deja “hueco” visible si está vacío */
           text-align: left;
           word-break: break-word;
