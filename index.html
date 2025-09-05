@@ -1494,19 +1494,18 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   object-fit: contain;
 }
 
-        /* Encabezados centrados */
-       .header {
+/* Contenedor del encabezado (deja espacio del logo) */
+.header{
   text-align: center;
-  /* deja espacio para el logo pero da más ancho al título */
-  padding-left: 30mm; 
+  padding-left: 40mm; /* 25.9mm del logo + ~14mm de aire */
+  position: relative; /* por si el logo va dentro de este bloque */
 }
 
-.brand {
-  font-weight: 700;    /* Arial Bold */
+.brand{
+  font-weight: 700;   /* Arial Bold */
   font-size: 24pt;
-  line-height: 1;      /* compacto */
-  white-space: nowrap; /* fuerza una sola línea */
-  letter-spacing: 0;   /* sin espaciado extra */
+  line-height: 1;     /* compacto */
+  white-space: nowrap;/* fuerza una sola línea */
 }
         .cliente {
           font-weight: 700;    /* Arial Bold */
