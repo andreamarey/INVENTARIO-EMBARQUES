@@ -1487,25 +1487,25 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
       /* LOGO: 25.9 mm × 35 mm, arriba-izquierda */
 .logo{
   position: absolute;
-  left: 6mm;         /* margen izquierdo */
-  top: 18mm;          /* <- AJUSTE FINO: súbelo/bájalo aquí */
-  width: 27mm;
-  height: 37mm;
+  left: 8mm;        /* alinea con el padding izquierdo de .page */
+  top: 6mm;         /* alinea con el padding superior de .page */
+  width: 25.9mm;    /* medida exacta pedida */
+  height: 35mm;     /* medida exacta pedida */
   object-fit: contain;
+  display: block;   /* elimina hueco de línea del <img> */
 }
 
 /* Contenedor del encabezado (deja espacio del logo) */
 .header{
-  text-align: center;
-  padding-left: 40mm; /* 25.9mm del logo + ~14mm de aire */
-  position: relative; /* por si el logo va dentro de este bloque */
+  text-align: center;padding-left: 42mm; /* 25.9mm del logo + ~16mm de aire */position: relative;
 }
 
 .brand{
-  font-weight: 700;   /* Arial Bold */
+  font-weight: 700;
   font-size: 24pt;
-  line-height: 1;     /* compacto */
-  white-space: nowrap;/* fuerza una sola línea */
+  line-height: 1;
+  white-space: nowrap; /* una sola línea */
+  letter-spacing: 0;   /* sin extra espacio para que quepa */
 }
         .cliente {
           font-weight: 700;    /* Arial Bold */
