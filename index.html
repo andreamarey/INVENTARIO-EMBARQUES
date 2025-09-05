@@ -1571,7 +1571,20 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
     <body>
       <div class="page">
         <!-- Logo -->
-<img class="logo" src="assets/LOGO.PNG?v=3" alt="Logo Muebles Krill">
+<img
+  class="logo"
+  src="assets/LOGO.PNG?v=5"
+  alt="Logo Muebles Krill"
+  style="
+    position:absolute;
+    left:6mm;
+    top:-2mm;          /* súbelo/bájalo aquí (prueba -4mm, 0mm, etc.) */
+    width:45mm;        /* hazlo más grande/pequeño */
+    height:60mm;
+    object-fit:contain;
+    outline: 1px dashed red; /* temporal para ver el cuadro del logo */
+  "
+>
 
         <!-- Encabezado -->
         <div class="header">
