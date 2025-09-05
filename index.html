@@ -278,15 +278,16 @@ button i { margin-right: 6px; }
   background: var(--row-hover);
 }
 
-/* =====================  Etiqueta / vista previa  (NUEVO LAYOUT) ===================== */
+/* =====================  Etiqueta / vista previa (SIN LOGO) ===================== */
 .label-preview{
   border:1.5px solid #111;
   padding:16px 16px 12px;
-  width:380px;             /* un poco más ancha para el contenido */
+  width:380px;                /* ancho de preview en pantalla */
   background:#fff;
   border-radius:10px;
   box-shadow: 0 4px 14px rgba(0,0,0,.08);
   font-family: Arial, sans-serif;
+  margin: 0 auto;             /* centrada en el contenedor */
 }
 
 .label-title{
@@ -300,12 +301,15 @@ button i { margin-right: 6px; }
   font-size:14px;
   font-weight:600;
   margin:0 0 8px;
+  text-align:center;
 }
 .label-divider{
   height:2px;
   background:#111;
   margin:6px 0 10px;
+  border-radius:2px;
 }
+
 .label-row{
   display:flex;
   gap:8px;
@@ -314,15 +318,17 @@ button i { margin-right: 6px; }
   align-items:flex-end;
 }
 .label-row .k{
-  width:88px;             /* ancho fijo para alinear llaves */
+  width:88px;
   font-weight:800;
 }
 .label-row .v{
   flex:1;
-  min-height:18px;        /* deja ver el espacio aunque esté vacío */
+  min-height:18px;            /* deja “hueco” visible si está vacío */
   border-bottom:1px dotted #999;
   padding-bottom:2px;
+  word-break: break-word;
 }
+
 .barcode-wrap{
   margin-top:12px;
   text-align:center;
@@ -332,6 +338,10 @@ button i { margin-right: 6px; }
   margin-top:6px;
   letter-spacing:1px;
 }
+.label-title{
+  font-size:18px;
+  font-weight:800;
+
 .label-preview .head-flex { display:flex; align-items:center; gap:10px; }
 .label-preview .logo-col { width:64px; flex:0 0 64px; display:flex; align-items:center; }
 .label-preview .logo-col img { max-width:100%; max-height:64px; object-fit:contain; }
@@ -1395,34 +1405,22 @@ function showPreview(){
   const it = items.find(i=>i.code===selectedLabelCode);
   if(!it){ wrap.innerHTML = '<div class="muted">Producto no encontrado.</div>'; return; }
 
-  // valores editables
+  // Toma los campos editables (si existen)
   const cliente = (document.getElementById('labelCliente')?.value || "").trim();
   const destino = (document.getElementById('labelDestino')?.value || "").trim();
+  const fechaImp = new Date().toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'numeric'});
 
-  // la fecha de la etiqueta en vista previa puede ser la de "impresión" (hoy)
-  const hoy = new Date();
-  const fechaImp = hoy.toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'numeric'});
-
-  // construye el layout nuevo (alineado con tu CSS .label-preview *)
   const div = document.createElement('div');
-  div.className = "label-preview";
+  div.className="label-preview";
   div.innerHTML = `
-    <div class="head-flex">
-      <div class="logo-col">
-        <img src="assets/LOGO.PNG" alt="Logo Muebles Krill">
-      </div>
-      <div class="text-col">
-        <div class="brand">MUEBLES KRILL S.A. DE C.V</div>
-        <div class="sub">CLIENTE: ${escapeHtml(cliente)}</div>
-      </div>
-    </div>
+    <div class="label-title">MUEBLES KRILL S.A. DE C.V</div>
+    <div class="label-sub">CLIENTE: ${cliente ? escapeHtml(cliente) : ''}</div>
+    <div class="label-divider"></div>
 
-    <div class="divider"></div>
-
-    <div class="label-row"><span class="k">MODELO:</span><span class="v">${escapeHtml(it.nombre || '')}</span></div>
-    <div class="label-row"><span class="k">TELA:</span><span class="v">${escapeHtml(it.tela || '')}</span></div>
-    <div class="label-row"><span class="k">SKU:</span><span class="v">${escapeHtml(it.sku || '')}</span></div>
-    <div class="label-row"><span class="k">DESTINO:</span><span class="v">${escapeHtml(destino)}</span></div>
+    <div class="label-row"><span class="k">MODELO:</span><span class="v">${escapeHtml(it.nombre)}</span></div>
+    <div class="label-row"><span class="k">TELA:</span><span class="v">${escapeHtml(it.tela)}</span></div>
+    <div class="label-row"><span class="k">SKU:</span><span class="v">${escapeHtml(it.sku||'')}</span></div>
+    <div class="label-row"><span class="k">DESTINO:</span><span class="v">${destino ? escapeHtml(destino) : ''}</span></div>
     <div class="label-row"><span class="k">FECHA:</span><span class="v">${escapeHtml(fechaImp)}</span></div>
 
     <div class="barcode-wrap">
@@ -1430,10 +1428,11 @@ function showPreview(){
       <div class="code-text">${escapeHtml(it.code)}</div>
     </div>
   `;
-
   wrap.appendChild(div);
 
-  try{JsBarcode("#barcodePrev", it.code, { format:"CODE128", width:2, height:60, displayValue:true });}catch(e){}
+  try{
+    JsBarcode("#barcodePrev", it.code, { format:"CODE128", width:2, height:60, displayValue:true });
+  }catch(e){}
 }
 // === (Opcional) Vista previa en vivo al escribir CLIENTE/DESTINO ===
 (function bindLabelLivePreview(){
@@ -1443,170 +1442,74 @@ function showPreview(){
   if (des) des.addEventListener('input', showPreview);
 })();
 
-/* ===== Impresión de etiqueta ===== */
+// === Impresión: clona el preview tal cual y ajusta a 4×6 horizontal ===
 document.getElementById('btnPrint').addEventListener('click', ()=>{
-  if(!selectedLabelCode){
-    alert("Primero busca y selecciona un producto de las sugerencias.");
+  const previewEl = document.querySelector('#previewWrap .label-preview');
+  if(!previewEl){
+    alert("Primero selecciona un producto de las sugerencias para ver la vista previa.");
     return;
   }
-  const it = items.find(i=>i.code===selectedLabelCode);
-  if(!it){ alert("Producto no encontrado"); return; }
+  const markup = previewEl.outerHTML;
 
-  const cliente = (document.getElementById('labelCliente')?.value || "").trim();
-  const destino = (document.getElementById('labelDestino')?.value || "").trim();
-  const fechaImp = new Date().toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'numeric'});
+  const css = `
+    @page { size: 152.4mm 101.6mm; margin: 0; }  /* 6x4" horizontal */
+    html,body{ margin:0; padding:0; }
+    body{
+      width:152.4mm; height:101.6mm;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      display:flex; align-items:center; justify-content:center;
+    }
 
-  const w = window.open('', '', 'width=900,height=700');
-  const html = `
+    /* Mismo estilo del preview, pero ocupando ancho útil de la página */
+    .label-preview{
+      width: calc(100% - 16mm);     /* respeta 8mm por lado */
+      margin: 0 auto;
+      border: 1.5px solid #111;
+      border-radius: 10px;
+      padding: 6mm 8mm 6mm;
+      box-shadow: none;
+      font-family: Arial, sans-serif;
+      background: #fff;
+    }
+    .label-title{
+      font-size:18px; font-weight:800; text-align:center; letter-spacing:.5px; margin:0 0 6px;
+    }
+    .label-sub{
+      font-size:14px; font-weight:600; text-align:center; margin:0 0 8px;
+    }
+    .label-divider{ height:2px; background:#111; margin:6mm 0 6mm; border-radius:2px; }
+
+    .label-row{
+      display:flex; gap:8px; font-size:14pt; margin:3mm 0; align-items:flex-end;
+    }
+    .label-row .k{ width:30mm; font-weight:800; }
+    .label-row .v{ flex:1; min-height:18px; border-bottom:1px dotted #999; padding-bottom:2px; word-break:break-word; }
+
+    .barcode-wrap{ margin-top:6mm; text-align:center; }
+    .barcode-wrap svg{ width:100%; height:42mm; }  /* MÁS ALTO para que sea MUY legible */
+    .code-text{ font-size:14pt; margin-top:2mm; letter-spacing:1px; }
+
+    @media print{
+      .label-preview{ box-shadow:none; }
+    }
+  `;
+
+  const w = window.open('', '', 'width=900,height=650');
+  w.document.write(`
     <html>
       <head>
-        <meta charset="utf-8">
-        <title>Etiqueta ${escapeHtml(it.code)}</title>
-        <style>
-          /* Página 4x6" horizontal (152.4mm × 101.6mm) */
-          @page { size: 152.4mm 101.6mm; margin: 0; }
-          html, body { margin:0; padding:0; }
-          body{
-            width:152.4mm; height:101.6mm;
-            font-family: Arial, sans-serif;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-
-          /* Lienzo con respiración */
-          .page{
-            width:152.4mm; height:101.6mm;
-            box-sizing:border-box;
-            padding:6mm 8mm 4mm;
-          }
-
-          /* Layout B: raíl izquierdo para el logo */
-          .wrap{ display:flex; height:100%; gap:6mm; }
-
-          .rail{
-            width:32mm;                 /* ancho fijo para el logo */
-            display:flex;
-            align-items:flex-start;
-            justify-content:center;
-          }
-          .main{
-            flex:1;
-            display:flex;
-            flex-direction:column;
-            min-width:0;
-          }
-
-          /* Encabezados grandes (24pt, negrita) en 1 línea */
-          .brand{
-            font-weight:700;
-            font-size:24pt;
-            line-height:1;
-            white-space:nowrap;          /* fuerza 1 línea */
-            letter-spacing:-0.2pt;       /* compacta un poquito */
-            transform: scaleX(0.985);    /* micro-compresión para ayudar a caber */
-            transform-origin:left center;
-          }
-          .cliente{
-            font-weight:700;
-            font-size:24pt;
-            line-height:1.05;
-            margin-top:1mm;
-            word-break: break-word;
-          }
-
-          /* Línea divisoria 2px */
-          .divider{
-            height:2px; background:#000;
-            margin:3mm 0 4mm;
-            border-radius:2px;
-          }
-
-          /* Campos */
-          .rows{ width:100%; }
-          .row{
-            display:flex;
-            gap:3mm;
-            align-items:baseline;
-            margin:.5mm 0;
-          }
-          /* Forzar encabezado sin hueco (sin logo) */
-.header{
-  text-align: center;
-  padding: 0 !important;      /* quita el padding que dejaba el logo */
-  position: static !important;
-}
-          .k{ font:700 24pt Arial, sans-serif; letter-spacing:.2pt; }
-          .v{ font:400 22pt Arial, sans-serif; min-width:40mm; word-break:break-word; }
-
-          /* Código de barras: abajo, gigante, centrado */
-        .barcode{
-  margin-top:auto;
-  text-align:center;
-  padding-top:2mm;
-}
-.barcode svg{
-  width:100%;
-  height:65mm;           /* ← más alto (prueba 50mm; si se pasa, baja a 46–48mm) */
-}
-.code-text{
-  font-size:18pt;        /* texto más grande debajo */
-  margin-top:1mm;
-  letter-spacing:1px;
-}
-
-          @media print { .page{ padding:6mm 8mm; } }
-        </style>
-        <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
+        <title>Etiqueta</title>
+        <style>${css}</style>
       </head>
       <body>
-        <div class="page">
-          <div class="wrap">
-            <!-- Raíl izquierdo (logo) -->
-            <div class="rail">
-            </div>
-
-            <!-- Columna principal -->
-            <div class="main">
-              <div class="brand">MUEBLES KRILL S.A. DE C.V</div>
-              <div class="cliente">CLIENTE: ${escapeHtml(cliente)}</div>
-              <div class="divider"></div>
-
-              <div class="rows">
-                <div class="row"><span class="k">MODELO:</span><span class="v">${escapeHtml(it.nombre)}</span></div>
-                <div class="row"><span class="k">TELA:</span><span class="v">${escapeHtml(it.tela)}</span></div>
-                <div class="row"><span class="k">SKU:</span><span class="v">${escapeHtml(it.sku||'')}</span></div>
-                <div class="row"><span class="k">DESTINO:</span><span class="v">${escapeHtml(destino)}</span></div>
-                <div class="row"><span class="k">FECHA:</span><span class="v">${escapeHtml(fechaImp)}</span></div>
-              </div>
-
-              <div class="barcode">
-                <svg id="b"></svg>
-                <div class="code-text">${escapeHtml(it.code)}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        ${markup}
         <script>
-          window.onload=function(){
-            try{
-      JsBarcode("#b","${escapeJs(it.code)}",{
-  format:"CODE128",
-  width: 2.8,       // ← barras más gruesas (prueba 2.6–3.0)
-  height: 10,       // la altura real la gobierna el CSS (50mm)
-  displayValue: false,
-  margin: 0,
-  marginLeft: 8,    // ← quiet zones más pequeños (≈2 mm)
-  marginRight: 8
-});
-            }catch(e){}
-            window.print();
-          };
+          window.onload = function(){ window.print(); }
         <\/script>
       </body>
     </html>
-  `;
-  w.document.write(html);
+  `);
   w.document.close();
   w.focus();
 });
