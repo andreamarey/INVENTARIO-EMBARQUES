@@ -1487,8 +1487,8 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
       /* LOGO: 25.9 mm × 35 mm, arriba-izquierda */
 .logo{
   position: absolute;
-  left: 8mm;        /* alinea con el padding izquierdo de .page */
-  top: 6mm;         /* alinea con el padding superior de .page */
+  left: 0mm;        /* alinea con el padding izquierdo de .page */
+  top: 0mm;         /* alinea con el padding superior de .page */
   width: 25.9mm;    /* medida exacta pedida */
   height: 35mm;     /* medida exacta pedida */
   object-fit: contain;
@@ -1497,7 +1497,9 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
 
 /* Contenedor del encabezado (deja espacio del logo) */
 .header{
-  text-align: center;padding-left: 42mm; /* 25.9mm del logo + ~16mm de aire */position: relative;
+  text-align: center;
+  padding-left: 42mm; /* logo (25.9mm) + aire */
+  position: relative;
 }
 
 .brand{
