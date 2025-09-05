@@ -1477,7 +1477,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
           .page{
             width:152.4mm; height:101.6mm;
             box-sizing:border-box;
-            padding:6mm 8mm;
+            padding:6mm 8mm 4mm;
           }
 
           /* Layout B: raíl izquierdo para el logo */
@@ -1533,7 +1533,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
             display:flex;
             gap:3mm;
             align-items:baseline;
-            margin:1mm 0;
+            margin:.5mm 0;
           }
           .k{ font:700 24pt Arial, sans-serif; letter-spacing:.2pt; }
           .v{ font:400 22pt Arial, sans-serif; min-width:40mm; word-break:break-word; }
@@ -1546,7 +1546,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
 }
 .barcode svg{
   width:100%;
-  height:50mm;           /* ← más alto (prueba 50mm; si se pasa, baja a 46–48mm) */
+  height:65mm;           /* ← más alto (prueba 50mm; si se pasa, baja a 46–48mm) */
 }
 .code-text{
   font-size:18pt;        /* texto más grande debajo */
