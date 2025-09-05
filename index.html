@@ -379,15 +379,15 @@ button i {
 </header>
 <div class="container">
 
-  <!-- Tabs -->
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="registrar">Registrar</button>
-    <button class="tab-btn" data-tab="escanear">Escanear</button>
-    <button class="tab-btn" data-tab="inventario">Inventario</button>
-    <button class="tab-btn" data-tab="conteo">Conteo mensual</button>
-    <button class="tab-btn" data-tab="etiquetas">Etiquetas</button>
-    <button class="tab-btn" data-tab="config">Configuración y Herramientas</button>
-  </div>
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="registrar" onclick="showTab('registrar')">Registrar</button>
+  <button class="tab-btn" data-tab="escanear" onclick="showTab('escanear')">Escanear</button>
+  <button class="tab-btn" data-tab="inventario" onclick="showTab('inventario')">Inventario</button>
+  <button class="tab-btn" data-tab="conteo" onclick="showTab('conteo')">Conteo mensual</button>
+  <button class="tab-btn" data-tab="etiquetas" onclick="showTab('etiquetas')">Etiquetas</button>
+  <button class="tab-btn" data-tab="config" onclick="showTab('config')">Configuración y Herramientas</button>
+</div>
 
   <!-- Registrar -->
   <section id="registrar" class="card">
@@ -670,50 +670,39 @@ function saveAll(){
   localStorage.setItem('snapshots_simple', JSON.stringify(snapshots));
 }
 
-/* ===== Cambio de pestañas (estable) ===== */
-(function tabsCoreStable(){
-  const tabs = document.querySelectorAll('.tab-btn');
-  const sections = document.querySelectorAll('section');
+/* ===== Cambio de pestañas (ultra simple) ===== */
+window.showTab = function(id){
+  // Ocultar todas las secciones
+  document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
 
-  function showTab(id){
-    // Oculta todas las secciones
-    sections.forEach(s => s.classList.add('hidden'));
-    // Muestra la sección objetivo
-    const sec = document.getElementById(id);
-    if (sec) sec.classList.remove('hidden');
+  // Mostrar la sección seleccionada
+  const sec = document.getElementById(id);
+  if (sec) sec.classList.remove('hidden');
 
-    // Marca la pestaña activa
-    tabs.forEach(b => b.classList.remove('active'));
-    const btn = document.querySelector(`.tab-btn[data-tab="${id}"]`);
-    if (btn) btn.classList.add('active');
+  // Marcar pestaña activa
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.tab-btn[data-tab="${id}"]`);
+  if (btn) btn.classList.add('active');
 
-    // Hooks por pestaña (con try/catch para no romper nada)
-    if (id === 'escanear'){
-      try { if (typeof initCameras === 'function') initCameras(); } catch(_){}
-    } else {
-      try { if (typeof stopScanner === 'function') stopScanner(); } catch(_){}
-    }
-    if (id === 'etiquetas'){
-      try { if (typeof refreshLabelSelect === 'function') refreshLabelSelect(); } catch(_){}
-    }
-    if (id === 'conteo'){
-      try { if (typeof renderCountEditor === 'function') renderCountEditor(); } catch(_){}
-      try { if (typeof renderSnapshotsList === 'function') renderSnapshotsList(); } catch(_){}
-    }
+  // Hooks por pestaña (sin romper si no hay cámara/función)
+  if (id === 'escanear'){
+    try { if (typeof initCameras === 'function') initCameras(); } catch(_){}
+  } else {
+    try { if (typeof stopScanner === 'function') stopScanner(); } catch(_){}
   }
+  if (id === 'etiquetas'){
+    try { if (typeof refreshLabelSelect === 'function') refreshLabelSelect(); } catch(_){}
+  }
+  if (id === 'conteo'){
+    try { if (typeof renderCountEditor === 'function') renderCountEditor(); } catch(_){}
+    try { if (typeof renderSnapshotsList === 'function') renderSnapshotsList(); } catch(_){}
+  }
+};
 
-  // Click de cada pestaña
-  tabs.forEach(btn=>{
-    btn.addEventListener('click', (e)=>{
-      e.preventDefault();
-      const id = btn.dataset.tab;
-      if (id) showTab(id);
-    });
-  });
-
-  // Mostrar la pestaña marcada como activa al cargar
-  const initial = document.querySelector('.tab-btn.active')?.dataset.tab || tabs[0]?.dataset.tab;
-  if (initial) showTab(initial);
+// Mostrar la pestaña marcada como activa al cargar
+(function(){
+  const initial = document.querySelector('.tab-btn.active')?.dataset.tab || 'registrar';
+  window.showTab(initial);
 })();
 
   // Delegación: un solo listener para todos los botones .tab-btn (aunque se re-rendericen)
