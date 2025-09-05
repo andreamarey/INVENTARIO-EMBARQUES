@@ -1523,7 +1523,6 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
 
   const w = window.open('', '', 'width=900,height=650');
 
-  // IMPORTANTE: todo este HTML está dentro de un template literal (entre ` ... `)
   const html = `
 <!DOCTYPE html>
 <html>
@@ -1531,7 +1530,6 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   <meta charset="utf-8">
   <title>Etiqueta ${escapeHtml(it.code)}</title>
   <style>
-    /* 4x6" horizontal */
     @page { size: 152.4mm 101.6mm; margin: 0; }
     html, body { margin:0; padding:0; }
     body {
@@ -1541,37 +1539,17 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
       print-color-adjust: exact !important;
     }
     .page { position: relative; width: 152.4mm; height: 101.6mm; box-sizing: border-box; padding: 6mm 8mm; }
-
-    /* SIN LOGO */
-
     .header { text-align: center; }
-    .brand {
-      font-weight: 700;  /* Arial Bold */
-      font-size: 24pt;
-      line-height: 1;
-      white-space: nowrap; /* 1 sola línea */
-    }
-    .cliente {
-      font-weight: 700;  /* Arial Bold */
-      font-size: 24pt;
-      line-height: 1.05;
-      margin-top: 1mm;
-      word-break: break-word;
-    }
+    .brand { font-weight: 700; font-size: 24pt; line-height: 1; white-space: nowrap; }
+    .cliente { font-weight: 700; font-size: 24pt; line-height: 1.05; margin-top: 1mm; word-break: break-word; }
     .divider { height: 2px; background: #000; margin: 3mm 0 4mm; border-radius: 2px; }
-
     .rows { width: calc(100% - 16mm); margin: 0 auto; }
-    .row{
-      display:flex; justify-content:center; gap:3mm; align-items:baseline;
-      margin:1mm 0; flex-wrap:wrap;
-    }
+    .row{ display:flex; justify-content:center; gap:3mm; align-items:baseline; margin:1mm 0; flex-wrap:wrap; }
     .k{ font: 700 24pt Arial, sans-serif; letter-spacing:.2pt; }
     .v{ font: 400 22pt Arial, sans-serif; min-width:40mm; text-align:left; word-break:break-word; }
-
     .barcode { margin-top: 4mm; text-align: center; }
-    .barcode svg { width: 100%; height: 45mm; } /* ALTO GRANDE */
+    .barcode svg { width: 100%; height: 45mm; }
     .code-text { font-size: 14pt; margin-top: 1mm; letter-spacing: 1px; }
-
     @media print { .page { padding: 6mm 8mm; } }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
@@ -1604,7 +1582,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
       try{
         JsBarcode("#b","${escapeJs(it.code)}",{
           format:"CODE128",
-          width: 2,            // grosor de barra
+          width: 2,
           displayValue: true,
           font: "Arial",
           fontSize: 12
@@ -1615,7 +1593,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
   <\/script>
 </body>
 </html>
-  `; // <- NO BORRES ESTA COMILLA INVERTIDA (cierra el template literal)
+  `;
 
   w.document.write(html);
   w.document.close();
