@@ -1527,24 +1527,24 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
           width: calc(100% - 16mm);  /* respeta padding lateral */
           margin: 0 auto;
         }
-        .row {
-          display: flex;
-          justify-content: center;   /* todo centrado como pediste */
-          gap: 3mm;
-          align-items: baseline;
-          margin: 1mm 0;
-          flex-wrap: wrap;           /* por si el texto es largo */
-        }
-        .k {
-          font-weight: 700;          /* “encabezados” a 24 pt negrita */
-          font-size: 24pt;
-        }
-        .v {
-          font-size: 22pt;           /* valor a 24 pt regular */
-          min-width: 40mm;           /* deja “hueco” visible si está vacío */
-          text-align: left;
-          word-break: break-word;
-        }
+     .row{
+  display:flex;
+  justify-content:center;
+  gap:3mm;
+  align-items:baseline;
+  margin:1mm 0;
+  flex-wrap:wrap;
+}
+.k{
+  font: 700 24pt Arial, sans-serif; /* negrita 24pt */
+  letter-spacing:.2pt;
+}
+.v{
+  font: 400 22pt Arial, sans-serif; /* valor 22pt (sube a 24pt si quieres) */
+  min-width:40mm;
+  text-align:left;
+  word-break:break-word;
+}
 
         /* Código de barras centrado y ajustado */
         .barcode {
