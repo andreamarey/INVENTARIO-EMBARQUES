@@ -723,7 +723,7 @@ window.showTab = function(id){
   const firstBtn  = document.querySelector('.tab-btn');
   const initialId = (activeBtn && activeBtn.dataset.tab) || (firstBtn && firstBtn.dataset.tab);
   if (initialId) showTab(initialId);
-})();
+)();
   // Asegura que la pestaña marcada como activa se muestre al cargar
   const firstActive = document.querySelector('.tab-btn.active');
   if (firstActive) showTab(firstActive.dataset.tab);
