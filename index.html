@@ -365,6 +365,7 @@ button i { margin-right: 6px; }
 }
 #scanFlash.ok{ background:#10b981; }
 #scanFlash.err{ background:#ef4444; }
+/* Visibilidad para tabs */
 .hidden { display: none !important; }
 button i {
   margin-right: 6px;
@@ -672,12 +673,18 @@ function saveAll(){
 /* ===== Cambio de pestañas (protegido) ===== */
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
+    // 1) estado visual de los botones
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    document.querySelectorAll('section').forEach(s=>s.classList.add('hidden'));
+
+    // 2) ocultar todas las secciones (solo las .card)
+    document.querySelectorAll('section.card').forEach(s=>s.classList.add('hidden'));
+
+    // 3) mostrar la sección destino
     const sec = document.getElementById(btn.dataset.tab);
     if (sec) sec.classList.remove('hidden');
 
+    // 4) hooks por pestaña
     if (btn.dataset.tab==='etiquetas') {
       if (typeof refreshLabelSelect === 'function') refreshLabelSelect();
     }
@@ -692,7 +699,6 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     }
   });
 });
-
 /* ===== Registrar ===== */
 document.getElementById('btnGenerate').addEventListener('click', ()=>{
   const nombre = document.getElementById('newName').value.trim();
