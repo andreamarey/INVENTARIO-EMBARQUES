@@ -1481,76 +1481,91 @@ function showPreview(){
 
 // === Impresión: clona el preview tal cual y ajusta a 4×6 horizontal ===
 document.getElementById('btnPrint').addEventListener('click', ()=>{
-  const previewEl = document.querySelector('#previewWrap .label-preview');
-  if(!previewEl){
-    alert("Primero selecciona un producto de las sugerencias para ver la vista previa.");
+  if(!selectedLabelCode){
+    alert("Primero busca y selecciona un producto de las sugerencias.");
     return;
   }
-  const markup = previewEl.outerHTML;
+  const it = items.find(i=>i.code===selectedLabelCode);
+  if(!it){ alert("Producto no encontrado"); return; }
 
-  const css = `
-    @page { size: 152.4mm 101.6mm; margin: 0; }  /* 6x4" horizontal */
-    html,body{ margin:0; padding:0; }
-    body{
-      width:152.4mm; height:101.6mm;
+  const cliente = (document.getElementById('labelCliente')?.value || "").trim();
+  const destino = (document.getElementById('labelDestino')?.value || "").trim();
+  const fechaImp = new Date().toLocaleDateString('es-MX', {day:'2-digit', month:'2-digit', year:'numeric'});
+
+  const w = window.open('', '', 'width=820,height=620');
+  w.document.write(`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Etiqueta ${escapeHtml(it.code)}</title>
+  <style>
+    /* Página 4x6" en horizontal: 152.4mm × 101.6mm */
+    @page { size: 152.4mm 101.6mm; margin: 0; }
+    html, body { margin:0; padding:0; }
+    body {
+      width: 152.4mm; height: 101.6mm;
+      font-family: Arial, sans-serif;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
-      display:flex; align-items:center; justify-content:center;
     }
+    .page { box-sizing: border-box; width: 152.4mm; height: 101.6mm; padding: 6mm 8mm; }
 
-    /* Mismo estilo del preview, pero ocupando ancho útil de la página */
-    .label-preview{
-      width: calc(100% - 16mm);     /* respeta 8mm por lado */
-      margin: 0 auto;
-      border: 1.5px solid #111;
-      border-radius: 10px;
-      padding: 6mm 8mm 6mm;
-      box-shadow: none;
-      font-family: Arial, sans-serif;
-      background: #fff;
-    }
-    .label-title{
-      font-size:18px; font-weight:800; text-align:center; letter-spacing:.5px; margin:0 0 6px;
-    }
-    .label-sub{
-      font-size:14px; font-weight:600; text-align:center; margin:0 0 8px;
-    }
-    .label-divider{ height:2px; background:#111; margin:6mm 0 6mm; border-radius:2px; }
+    /* Encabezados */
+    .brand   { font: 700 24pt Arial; text-align:center; line-height:1; white-space:nowrap; }
+    .cliente { font: 700 24pt Arial; text-align:center; margin-top: 1mm; }
 
-    .label-row{
-      display:flex; gap:8px; font-size:14pt; margin:3mm 0; align-items:flex-end;
-    }
-    .label-row .k{ width:30mm; font-weight:800; }
-    .label-row .v{ flex:1; min-height:18px; border-bottom:1px dotted #999; padding-bottom:2px; word-break:break-word; }
+    /* Línea divisoria 2px */
+    .divider { height: 2px; background: #000; margin: 3mm 0 4mm; border-radius: 2px; }
 
-    .barcode-wrap{ margin-top:6mm; text-align:center; }
-    .barcode-wrap svg{ width:100%; height:42mm; }  /* MÁS ALTO para que sea MUY legible */
-    .code-text{ font-size:14pt; margin-top:2mm; letter-spacing:1px; }
+    /* Campos centrados */
+    .rows { width: calc(100% - 16mm); margin: 0 auto; }
+    .row { display:flex; justify-content:center; gap:3mm; align-items:baseline; margin:1mm 0; flex-wrap:wrap; }
+    .k { font: 700 24pt Arial; letter-spacing:.2pt; }
+    .v { font: 400 22pt Arial; min-width:40mm; text-align:left; word-break:break-word; }
 
-    @media print{
-      .label-preview{ box-shadow:none; }
-    }
-  `;
+    /* Código de barras centrado y alto */
+    .barcode { margin-top: 4mm; text-align: center; }
+    .barcode svg { width: 100%; height: 50mm; } /* <- más alto */
+    .code-text { font: 700 14pt Arial; margin-top: 1mm; letter-spacing: 1px; }
 
-  const w = window.open('', '', 'width=900,height=650');
-  w.document.write(`
-    <html>
-      <head>
-        <title>Etiqueta</title>
-        <style>${css}</style>
-      </head>
-      <body>
-        ${markup}
-        <script>
-          window.onload = function(){ window.print(); }
-        <\/script>
-      </body>
-    </html>
-  `);
+    @media print { .page { padding: 6mm 8mm; } }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
+</head>
+<body>
+  <div class="page">
+    <div class="brand">MUEBLES KRILL S.A. DE C.V</div>
+    <div class="cliente">CLIENTE: ${escapeHtml(cliente)}</div>
+
+    <div class="divider"></div>
+
+    <div class="rows">
+      <div class="row"><span class="k">MODELO:</span><span class="v">${escapeHtml(it.nombre)}</span></div>
+      <div class="row"><span class="k">TELA:</span><span class="v">${escapeHtml(it.tela)}</span></div>
+      <div class="row"><span class="k">SKU:</span><span class="v">${escapeHtml(it.sku||'')}</span></div>
+      <div class="row"><span class="k">DESTINO:</span><span class="v">${escapeHtml(destino)}</span></div>
+      <div class="row"><span class="k">FECHA:</span><span class="v">${escapeHtml(fechaImp)}</span></div>
+    </div>
+
+    <div class="barcode">
+      <svg id="b"></svg>
+      <div class="code-text">${escapeHtml(it.code)}</div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      try{
+        JsBarcode("#b","${escapeJs(it.code)}",{ format:"CODE128", width:2, displayValue:false });
+      }catch(e){}
+      window.print();
+    })();
+  <\/script>
+</body>
+</html>`);
   w.document.close();
   w.focus();
 });
-
 /* ===== Botones de +1 / +N en pestaña Escanear ===== */
 document.getElementById('btnPlus1').addEventListener('click', ()=>{
   const code = document.getElementById('scanCode').value.trim();
