@@ -1489,12 +1489,6 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
             align-items:flex-start;
             justify-content:center;
           }
-          .logo{
-            width:25.9mm;               /* tu medida pedida */
-            height:35mm;
-            object-fit: contain;         /* usa "cover" si tu PNG trae márgenes transparentes */
-          }
-
           .main{
             flex:1;
             display:flex;
@@ -1535,6 +1529,12 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
             align-items:baseline;
             margin:.5mm 0;
           }
+          /* Forzar encabezado sin hueco (sin logo) */
+.header{
+  text-align: center;
+  padding: 0 !important;      /* quita el padding que dejaba el logo */
+  position: static !important;
+}
           .k{ font:700 24pt Arial, sans-serif; letter-spacing:.2pt; }
           .v{ font:400 22pt Arial, sans-serif; min-width:40mm; word-break:break-word; }
 
@@ -1563,7 +1563,6 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
           <div class="wrap">
             <!-- Raíl izquierdo (logo) -->
             <div class="rail">
-              <img class="logo" src="assets/LOGO.PNG" alt="Logo Muebles Krill">
             </div>
 
             <!-- Columna principal -->
