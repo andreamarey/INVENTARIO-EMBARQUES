@@ -1443,7 +1443,7 @@ function showPreview(){
   if (des) des.addEventListener('input', showPreview);
 })();
 
-/* ===== Impresión de etiqueta (nuevo layout) ===== */
+/* ===== Impresión de etiqueta ===== */
 document.getElementById('btnPrint').addEventListener('click', ()=>{
   if(!selectedLabelCode){
     alert("Primero busca y selecciona un producto de las sugerencias.");
@@ -1463,7 +1463,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
     <head>
       <title>Etiqueta ${escapeHtml(it.code)}</title>
       <style>
-        /* Elimina márgenes del diálogo de impresión */
+        /* Quita márgenes del diálogo de impresión */
         @page { size:auto; margin:0; }
         html,body{ margin:0; padding:0; }
         body{ font-family:Arial, sans-serif; }
@@ -1521,7 +1521,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
       </div>
 
       <script>
-        // Genera el código y manda a imprimir sin márgenes
+        // Genera el código y lanza la impresión
         window.onload = function(){
           try{
             JsBarcode("#b","${escapeJs(it.code)}",{
