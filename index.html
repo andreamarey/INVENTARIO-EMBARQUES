@@ -1487,18 +1487,17 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
       /* LOGO: 25.9 mm × 35 mm, arriba-izquierda */
 .logo{
   position: absolute;
-  left: 0mm;        /* alinea con el padding izquierdo de .page */
-  top: 0mm;         /* alinea con el padding superior de .page */
-  width: 32mm;    /* medida exacta pedida */
-  height: 43mm;     /* medida exacta pedida */
+  left: 6mm;        /* alinea con el padding izquierdo de .page */
+  top: 8mm;         /* alinea con el padding superior de .page */
+  width: 50mm;    /* medida exacta pedida */
+  height: 70mm;     /* medida exacta pedida */
   object-fit: contain;
-  display: block;   /* elimina hueco de línea del <img> */
 }
 
 /* Contenedor del encabezado (deja espacio del logo) */
 .header{
   text-align: center;
-  padding-left: 35mm; /* logo (25.9mm) + aire */
+  padding-left: 62mm; /* logo (25.9mm) + aire */
   position: relative;
 }
 
@@ -1571,7 +1570,7 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
     <body>
       <div class="page">
         <!-- Logo -->
-        <img class="logo" src="assets/LOGO.PNG" alt="Logo Muebles Krill">
+<img class="logo" src="assets/LOGO.PNG?v=2" alt="Logo Muebles Krill">
 
         <!-- Encabezado -->
         <div class="header">
