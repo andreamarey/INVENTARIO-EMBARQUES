@@ -383,10 +383,13 @@ button i {
     <div class="row">
       <input id="newName" placeholder="Modelo (ej. Sillón Roma)">
       <input id="newFabric" placeholder="Tela (ej. Lino Beige)">
-      <input id="newSKU" placeholder="SKU (ej. SR-LB)">
+      <input id="newSKU" placeholder="SKU (opcional, ej. SR-LB)">
     </div>
 <button id="btnGenerate"><i class="fa fa-plus"></i> Guardar / Sumar</button>
-    <div class="muted">Si ya existe el mismo <b>SKU + Modelo + Tela</b>, se suma cantidad y se reutiliza el mismo KLL.</div>
+<div class="muted">
+  Si el <b>SKU</b> está vacío, se busca por <b>Modelo + Tela</b> (sin mezclar con los que sí tienen SKU).
+  Si el <b>SKU</b> tiene valor, se usa <b>SKU + Modelo + Tela</b>.
+</div>
   </section>
 
   <!-- Escanear -->
@@ -679,25 +682,59 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 document.getElementById('btnGenerate').addEventListener('click', ()=>{
   const nombre = document.getElementById('newName').value.trim();
   const tela   = document.getElementById('newFabric').value.trim();
-  const sku    = document.getElementById('newSKU').value.trim();
-  if(!nombre || !tela || !sku){ alert("Completa Modelo, Tela y SKU"); return; }
+  const sku    = document.getElementById('newSKU').value.trim(); // ahora opcional
 
-  const existing = items.find(i=>i.sku.toLowerCase()===sku.toLowerCase() &&
-                                 i.nombre.toLowerCase()===nombre.toLowerCase() &&
-                                 i.tela.toLowerCase()===tela.toLowerCase());
+  // SKU ya no es obligatorio
+  if(!nombre || !tela){
+    alert("Completa Modelo y Tela");
+    return;
+  }
+
+  // Helper seguro para comparar en minúsculas
+  const lc = s => (s||'').trim().toLowerCase();
+  const hasSku = sku.trim().length > 0;
+
+  // Regla de coincidencia:
+  // - Si hay SKU: match por (nombre + tela + sku)
+  // - Si NO hay SKU: match por (nombre + tela) y además que ese item NO tenga SKU
+  let existing = null;
+  if (hasSku){
+    existing = items.find(i =>
+      lc(i.nombre) === lc(nombre) &&
+      lc(i.tela)   === lc(tela)   &&
+      lc(i.sku)    === lc(sku)
+    );
+  } else {
+    existing = items.find(i =>
+      lc(i.nombre) === lc(nombre) &&
+      lc(i.tela)   === lc(tela)   &&
+      lc(i.sku)    === ''         // no mezclar con los que sí tienen SKU
+    );
+  }
+
   const nowISO = new Date().toISOString();
 
   if(existing){
     existing.cantidad += 1;
-    moves.push({id: genId(),dateISO: nowISO, code: existing.code, sku: existing.sku, nombre: existing.nombre, tela: existing.tela, delta:+1, type:'register'});
-    alert(`Se sumó +1 a ${existing.nombre} (${existing.tela}) · SKU ${existing.sku}\nCódigo: ${existing.code}`);
+    moves.push({
+      id: genId(),
+      dateISO: nowISO,
+      code: existing.code,
+      sku: existing.sku,           // puede venir vacío
+      nombre: existing.nombre,
+      tela: existing.tela,
+      delta: +1,
+      type: 'register'
+    });
+    alert(`Se sumó +1 a ${existing.nombre} (${existing.tela}) · SKU ${existing.sku||'(sin SKU)'}\nCódigo: ${existing.code}`);
   }else{
     const code = "KLL-" + String(kllCounter).padStart(4,"0");
     kllCounter++;
-    items.push({code, sku, nombre, tela, cantidad:1, createdISO:nowISO});
-    moves.push({id: genId(),dateISO: nowISO, code, sku, nombre, tela, delta:+1, type:'register'});
+    items.push({ code, sku, nombre, tela, cantidad:1, createdISO:nowISO });
+    moves.push({ id: genId(), dateISO: nowISO, code, sku, nombre, tela, delta:+1, type:'register' });
     alert(`Nuevo producto creado con código ${code}`);
   }
+
   saveAll();
   document.getElementById('newName').value = "";
   document.getElementById('newFabric').value = "";
