@@ -670,45 +670,57 @@ function saveAll(){
   localStorage.setItem('snapshots_simple', JSON.stringify(snapshots));
 }
 
-/* ===== Cambio de pestañas (blindado) ===== */
-(function setupTabs(){
-  const tabs = document.querySelectorAll('.tab-btn');
-  const sections = document.querySelectorAll('section');
-
+/* ===== Cambio de pestañas (ultra-blindado con delegación) ===== */
+(function tabsCoreV2(){
   function showTab(id){
-    sections.forEach(s => s.classList.add('hidden'));
-    const sec = document.getElementById(id);
-    if (sec) sec.classList.remove('hidden');
+    try{
+      // Oculta todo
+      document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+      // Muestra la sección objetivo
+      const sec = document.getElementById(id);
+      if (sec) sec.classList.remove('hidden');
+
+      // Marca activa la pestaña correcta
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      const btn = document.querySelector(`.tab-btn[data-tab="${id}"]`);
+      if (btn) btn.classList.add('active');
+
+      // Tareas por pestaña (todas dentro de try para no romper el flujo)
+      if (id !== 'escanear') {
+        try{ if (typeof stopScanner === 'function') stopScanner(); }catch(_){}
+      }
+      if (id === 'etiquetas'){
+        try{ if (typeof refreshLabelSelect === 'function') refreshLabelSelect(); }catch(_){}
+      }
+      if (id === 'conteo'){
+        try{ if (typeof renderCountEditor === 'function') renderCountEditor(); }catch(_){}
+        try{ if (typeof renderSnapshotsList === 'function') renderSnapshotsList(); }catch(_){}
+      }
+    }catch(err){
+      console.error('showTab error:', err);
+      alert('Error al mostrar la pestaña: ' + (err?.message || err));
+    }
   }
 
-  tabs.forEach(btn=>{
-    btn.addEventListener('click', (ev)=>{
-      try{
-        tabs.forEach(b=>b.classList.remove('active'));
-        ev.currentTarget.classList.add('active');
+  // Delegación: un solo listener para todos los botones .tab-btn (aunque se re-rendericen)
+  document.addEventListener('click', function(ev){
+    const target = ev.target.closest('.tab-btn');
+    if (!target) return;
+    const id = target.getAttribute('data-tab');
+    if (!id) return;
+    ev.preventDefault();
+    showTab(id);
+  }, true);
 
-        const id = ev.currentTarget.dataset.tab;
-        showTab(id);
+  // Expone una función global por si quieres invocarla desde HTML (opcional)
+  window.switchTab = showTab;
 
-        // No auto-cámara para evitar errores que bloqueen el JS.
-        if (id !== 'escanear') {
-          try{ if (typeof stopScanner === 'function') stopScanner(); }catch(_){}
-        }
-
-        if (id === 'etiquetas'){
-          try{ if (typeof refreshLabelSelect === 'function') refreshLabelSelect(); }catch(_){}
-        }
-        if (id === 'conteo'){
-          try{ if (typeof renderCountEditor === 'function') renderCountEditor(); }catch(_){}
-          try{ if (typeof renderSnapshotsList === 'function') renderSnapshotsList(); }catch(_){}
-        }
-      }catch(err){
-        console.error('Error al cambiar de pestaña:', err);
-        alert('Error al cambiar de pestaña: ' + (err?.message || err));
-      }
-    });
-  });
-
+  // Al cargar, muestra la pestaña marcada como .active; si no hay, muestra la primera
+  const activeBtn = document.querySelector('.tab-btn.active');
+  const firstBtn  = document.querySelector('.tab-btn');
+  const initialId = (activeBtn && activeBtn.dataset.tab) || (firstBtn && firstBtn.dataset.tab);
+  if (initialId) showTab(initialId);
+})();
   // Asegura que la pestaña marcada como activa se muestre al cargar
   const firstActive = document.querySelector('.tab-btn.active');
   if (firstActive) showTab(firstActive.dataset.tab);
