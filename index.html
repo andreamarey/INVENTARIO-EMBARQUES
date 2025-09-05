@@ -1222,22 +1222,46 @@ let resumeTimer = null;
 document.getElementById('btnStart').addEventListener('click', startScanner);
 document.getElementById('btnStop').addEventListener('click', stopScanner);
 
-async function initCameras(){
-  const select = document.getElementById('cameraSelect');
-  select.innerHTML = "";
-  try{
+async function startScanner(){
+  if (h5) return;
+
+  // Revalida que el deviceId exista
+  let camId = currentCamId;
+  try {
     const cams = await Html5Qrcode.getCameras();
-    cams.forEach(c=>{
-      const opt = document.createElement('option');
-      opt.value = c.id; opt.textContent = c.label || c.id;
-      select.appendChild(opt);
-    });
-    const rear = cams.find(c=>/back|rear|trase|environment/gi.test(c.label||""));
-    currentCamId = (rear ? rear.id : cams[0]?.id);
-    if(currentCamId) select.value = currentCamId;
-    select.onchange = ()=>{ currentCamId = select.value; if(h5){ stopScanner(); startScanner(); } };
+    const ids = (cams||[]).map(c=>c.id);
+    if (!ids.includes(camId)) {
+      camId = ids[0]; // toma la primera disponible
+      currentCamId = camId || null;
+    }
+  } catch(_) {
+    camId = null;
+  }
+
+  if(!camId){
+    alert("No hay cámaras disponibles o permiso denegado.\nPuedes seguir usando el escáner USB (modo teclado).");
+    return;
+  }
+
+  h5 = new Html5Qrcode("reader");
+  const formats = [
+    Html5QrcodeSupportedFormats.QR_CODE,
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.EAN_13
+  ];
+
+  try{
+    await h5.start(
+      { deviceId: { exact: camId } },
+      { fps:10, qrbox:250, formatsToSupport:formats },
+      onScanSuccess,
+      onScanFailure
+    );
   }catch(e){
     console.error(e);
+    alert("No pude iniciar la cámara. Revisa permisos, que no esté en uso por otra app, o prueba otro navegador.");
+    h5 = null;
   }
 }
 async function startScanner(){
