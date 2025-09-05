@@ -1539,20 +1539,20 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
           .v{ font:400 22pt Arial, sans-serif; min-width:40mm; word-break:break-word; }
 
           /* Código de barras: abajo, gigante, centrado */
-          .barcode{
-            margin-top:auto;             /* empuja al fondo */
-            text-align:center;
-            padding-top:2mm;
-          }
-          .barcode svg{
-            width:100%;                  /* ancho completo */
-            height:42mm;                 /* MUY grande (baja a 38mm si se pasa) */
-          }
-          .code-text{
-            font-size:16pt;
-            margin-top:1mm;
-            letter-spacing:1px;
-          }
+        .barcode{
+  margin-top:auto;
+  text-align:center;
+  padding-top:2mm;
+}
+.barcode svg{
+  width:100%;
+  height:50mm;           /* ← más alto (prueba 50mm; si se pasa, baja a 46–48mm) */
+}
+.code-text{
+  font-size:18pt;        /* texto más grande debajo */
+  margin-top:1mm;
+  letter-spacing:1px;
+}
 
           @media print { .page{ padding:6mm 8mm; } }
         </style>
@@ -1591,17 +1591,15 @@ document.getElementById('btnPrint').addEventListener('click', ()=>{
         <script>
           window.onload=function(){
             try{
-              JsBarcode("#b","${escapeJs(it.code)}",{
-                format:"CODE128",
-                /* Grosor de barra: súbelo/bájalo 1.8–2.6 según lo “densa” que salga */
-                width: 2.2,
-                /* La altura la gobierna el CSS del SVG (42mm) */
-                height: 10,
-                displayValue: false,   // el texto grande lo ponemos con .code-text
-                margin: 0,
-                marginLeft: 12,        // ~3mm de quiet zone en impresiones típicas
-                marginRight: 12
-              });
+      JsBarcode("#b","${escapeJs(it.code)}",{
+  format:"CODE128",
+  width: 2.8,       // ← barras más gruesas (prueba 2.6–3.0)
+  height: 10,       // la altura real la gobierna el CSS (50mm)
+  displayValue: false,
+  margin: 0,
+  marginLeft: 8,    // ← quiet zones más pequeños (≈2 mm)
+  marginRight: 8
+});
             }catch(e){}
             window.print();
           };
