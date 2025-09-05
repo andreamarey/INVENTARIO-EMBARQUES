@@ -670,37 +670,51 @@ function saveAll(){
   localStorage.setItem('snapshots_simple', JSON.stringify(snapshots));
 }
 
-/* ===== Cambio de pestañas (ultra-blindado con delegación) ===== */
-(function tabsCoreV2(){
+/* ===== Cambio de pestañas (estable) ===== */
+(function tabsCoreStable(){
+  const tabs = document.querySelectorAll('.tab-btn');
+  const sections = document.querySelectorAll('section');
+
   function showTab(id){
-    try{
-      // Oculta todo
-      document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
-      // Muestra la sección objetivo
-      const sec = document.getElementById(id);
-      if (sec) sec.classList.remove('hidden');
+    // Oculta todas las secciones
+    sections.forEach(s => s.classList.add('hidden'));
+    // Muestra la sección objetivo
+    const sec = document.getElementById(id);
+    if (sec) sec.classList.remove('hidden');
 
-      // Marca activa la pestaña correcta
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      const btn = document.querySelector(`.tab-btn[data-tab="${id}"]`);
-      if (btn) btn.classList.add('active');
+    // Marca la pestaña activa
+    tabs.forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`.tab-btn[data-tab="${id}"]`);
+    if (btn) btn.classList.add('active');
 
-      // Tareas por pestaña (todas dentro de try para no romper el flujo)
-      if (id !== 'escanear') {
-        try{ if (typeof stopScanner === 'function') stopScanner(); }catch(_){}
-      }
-      if (id === 'etiquetas'){
-        try{ if (typeof refreshLabelSelect === 'function') refreshLabelSelect(); }catch(_){}
-      }
-      if (id === 'conteo'){
-        try{ if (typeof renderCountEditor === 'function') renderCountEditor(); }catch(_){}
-        try{ if (typeof renderSnapshotsList === 'function') renderSnapshotsList(); }catch(_){}
-      }
-    }catch(err){
-      console.error('showTab error:', err);
-      alert('Error al mostrar la pestaña: ' + (err?.message || err));
+    // Hooks por pestaña (con try/catch para no romper nada)
+    if (id === 'escanear'){
+      try { if (typeof initCameras === 'function') initCameras(); } catch(_){}
+    } else {
+      try { if (typeof stopScanner === 'function') stopScanner(); } catch(_){}
+    }
+    if (id === 'etiquetas'){
+      try { if (typeof refreshLabelSelect === 'function') refreshLabelSelect(); } catch(_){}
+    }
+    if (id === 'conteo'){
+      try { if (typeof renderCountEditor === 'function') renderCountEditor(); } catch(_){}
+      try { if (typeof renderSnapshotsList === 'function') renderSnapshotsList(); } catch(_){}
     }
   }
+
+  // Click de cada pestaña
+  tabs.forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.preventDefault();
+      const id = btn.dataset.tab;
+      if (id) showTab(id);
+    });
+  });
+
+  // Mostrar la pestaña marcada como activa al cargar
+  const initial = document.querySelector('.tab-btn.active')?.dataset.tab || tabs[0]?.dataset.tab;
+  if (initial) showTab(initial);
+})();
 
   // Delegación: un solo listener para todos los botones .tab-btn (aunque se re-rendericen)
   document.addEventListener('click', function(ev){
