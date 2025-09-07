@@ -373,12 +373,12 @@ button i {
 
 <!-- Tabs -->
 <div class="tabs">
-  <button class="tab-btn active" data-tab="registrar" onclick="showTab('registrar')">Registrar</button>
-  <button class="tab-btn" data-tab="escanear" onclick="showTab('escanear')">Escanear</button>
-  <button class="tab-btn" data-tab="inventario" onclick="showTab('inventario')">Inventario</button>
-  <button class="tab-btn" data-tab="conteo" onclick="showTab('conteo')">Conteo mensual</button>
-  <button class="tab-btn" data-tab="etiquetas" onclick="showTab('etiquetas')">Etiquetas</button>
-  <button class="tab-btn" data-tab="config" onclick="showTab('config')">Configuración y Herramientas</button>
+  <button class="tab-btn active" data-tab="registrar">Registrar</button>
+  <button class="tab-btn" data-tab="escanear">Escanear</button>
+  <button class="tab-btn" data-tab="inventario">Inventario</button>
+  <button class="tab-btn" data-tab="conteo">Conteo mensual</button>
+  <button class="tab-btn" data-tab="etiquetas">Etiquetas</button>
+  <button class="tab-btn" data-tab="config">Configuración y Herramientas</button>
 </div>
 
   <!-- Registrar -->
@@ -569,49 +569,51 @@ button i {
 <script>
 /* ===== Estado & Persistencia ===== */
 let items = [];     // [{code, sku, nombre, tela, cantidad, createdISO}]
-let moves = [];     // [{dateISO, code, sku, nombre, tela, delta, type}] // type: 'register'|'import'|'scan'
+let moves = [];     // [{dateISO, code, sku, nombre, tela, delta, type}]
 let kllCounter = 1;
 let prefs = { beep:true, vibrate:true };
-let snapshots = []; // [{id,label,createdISO,totals:[{code,sku,nombre,tela,cantidad}],notes?}]
-let countBuffer = []; // buffer de conteo
-let selectedLabelCode = null; // Etiquetas (buscador)
-let labelCliente = "";
-let labelDestino = "";
+let snapshots = []; // [{id,label,createdISO,totals:[...]}]
+let countBuffer = [];
+let selectedLabelCode = null;
 
 /* ===== Cargar ===== */
 (function load(){
   try{
-    items = JSON.parse(localStorage.getItem('items_simple')||'[]');
-    moves = JSON.parse(localStorage.getItem('moves_simple')||'[]');
-    kllCounter = parseInt(localStorage.getItem('kllCounter_simple')||'1');
-    const p = JSON.parse(localStorage.getItem('prefs_simple')||'{}');
-    prefs.beep = p.beep!==undefined ? p.beep : true;
-    prefs.vibrate = p.vibrate!==undefined ? p.vibrate : true;
-    snapshots = JSON.parse(localStorage.getItem('snapshots_simple')||'[]');
+    items      = JSON.parse(localStorage.getItem('items_simple')||'[]');
+    moves      = JSON.parse(localStorage.getItem('moves_simple')||'[]');
+    kllCounter = parseInt(localStorage.getItem('kllCounter_simple')||'1',10);
+    const p    = JSON.parse(localStorage.getItem('prefs_simple')||'{}');
+    prefs.beep     = p.beep!==undefined ? p.beep : true;
+    prefs.vibrate  = p.vibrate!==undefined ? p.vibrate : true;
+    snapshots  = JSON.parse(localStorage.getItem('snapshots_simple')||'[]');
   }catch(e){
-    items=[]; moves=[]; kllCounter=1; prefs={beep:true, vibrate:true}; snapshots=[];
+    items=[]; moves=[]; kllCounter=1; prefs={beep:true,vibrate:true}; snapshots=[];
   }
 
-  document.getElementById('prefBeep').checked = !!prefs.beep;
-  document.getElementById('prefVibrate').checked = !!prefs.vibrate;
+  const chkBeep = document.getElementById('prefBeep');
+  const chkVib  = document.getElementById('prefVibrate');
+  if (chkBeep) chkBeep.checked = !!prefs.beep;
+  if (chkVib)  chkVib.checked  = !!prefs.vibrate;
 
-  // Asegura IDs en movimientos ya existentes
-  ensureMoveIds();
+  // Asegura IDs de movimientos ya guardados (definición de ensureMoveIds más abajo en tu archivo)
+  try { if (typeof ensureMoveIds === 'function') ensureMoveIds(); } catch(_){}
 
-  // Pinta tablas iniciales
-  renderInventory();
-  refreshLabelSelect(); // buscador de etiquetas
+  // Pinta vistas iniciales
+  try { renderInventory(); } catch(_){}
+  try { refreshLabelSelect(); } catch(_){}
 })();
-// === Exportaciones desde la pestaña "Configuración y Herramientas" (todo, sin filtros) ===
+
+/* ===== Exportaciones desde Config (botones "Totales" y "Movimientos") ===== */
 (function bindConfigExports(){
   const btnTot = document.getElementById('btnExportTotals');
   const btnMov = document.getElementById('btnExportMovs');
-  if(btnTot) btnTot.addEventListener('click', exportAllTotals);
-  if(btnMov) btnMov.addEventListener('click', exportAllMoves);
+  if (btnTot) btnTot.addEventListener('click', exportAllTotals);
+  if (btnMov) btnMov.addEventListener('click', exportAllMoves);
 })();
-// === Exportar TODO (sin filtros) para la pestaña Configuración ===
+
+/* ===== Exportar TODO (sin filtros) ===== */
 function exportAllTotals(){
-  if(!Array.isArray(items) || items.length===0){
+  if (!Array.isArray(items) || items.length===0){
     alert("No hay datos en Totales para exportar.");
     return;
   }
@@ -626,12 +628,12 @@ function exportAllTotals(){
       Number(i.cantidad)||0,
       i.createdISO ? new Date(i.createdISO).toLocaleDateString() : ""
     ]);
-
+  // downloadCSV está definido más abajo en tu archivo
   downloadCSV("inventario_totales_COMPLETO.csv", headers, rows);
 }
 
 function exportAllMoves(){
-  if(!Array.isArray(moves) || moves.length===0){
+  if (!Array.isArray(moves) || moves.length===0){
     alert("No hay movimientos para exportar.");
     return;
   }
@@ -651,9 +653,9 @@ function exportAllMoves(){
         m.type
       ];
     });
-
   downloadCSV("inventario_movimientos_COMPLETO.csv", headers, rows);
 }
+
 function saveAll(){
   localStorage.setItem('items_simple', JSON.stringify(items));
   localStorage.setItem('moves_simple', JSON.stringify(moves));
@@ -662,12 +664,11 @@ function saveAll(){
   localStorage.setItem('snapshots_simple', JSON.stringify(snapshots));
 }
 
-/* ===== Cambio de pestañas (ultra simple) ===== */
+/* ===== Tabs (única implementación) ===== */
 window.showTab = function(id){
   // Ocultar todas las secciones
   document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
-
-  // Mostrar la sección seleccionada
+  // Mostrar sección seleccionada
   const sec = document.getElementById(id);
   if (sec) sec.classList.remove('hidden');
 
@@ -676,7 +677,7 @@ window.showTab = function(id){
   const btn = document.querySelector(`.tab-btn[data-tab="${id}"]`);
   if (btn) btn.classList.add('active');
 
-  // Hooks por pestaña (sin romper si no hay cámara/función)
+  // Hooks seguros por pestaña
   if (id === 'escanear'){
     try { if (typeof initCameras === 'function') initCameras(); } catch(_){}
   } else {
@@ -691,34 +692,24 @@ window.showTab = function(id){
   }
 };
 
-// Mostrar la pestaña marcada como activa al cargar
-(function(){
+// Inicializa pestaña y listener global (delegación)
+(function initTabs(){
+  // Mostrar la pestaña marcada como activa, o 'registrar' por defecto
   const initial = document.querySelector('.tab-btn.active')?.dataset.tab || 'registrar';
-  window.showTab(initial);
-})();
+  showTab(initial);
 
-  // Delegación: un solo listener para todos los botones .tab-btn (aunque se re-rendericen)
+  // Un solo listener para todos los .tab-btn
   document.addEventListener('click', function(ev){
-    const target = ev.target.closest('.tab-btn');
-    if (!target) return;
-    const id = target.getAttribute('data-tab');
+    const btn = ev.target.closest('.tab-btn');
+    if (!btn) return;
+    const id = btn.getAttribute('data-tab');
     if (!id) return;
     ev.preventDefault();
     showTab(id);
   }, true);
 
-  // Expone una función global por si quieres invocarla desde HTML (opcional)
+  // (Opcional) Exponer función para cambiar pestañas desde HTML/JS
   window.switchTab = showTab;
-
-  // Al cargar, muestra la pestaña marcada como .active; si no hay, muestra la primera
-  const activeBtn = document.querySelector('.tab-btn.active');
-  const firstBtn  = document.querySelector('.tab-btn');
-  const initialId = (activeBtn && activeBtn.dataset.tab) || (firstBtn && firstBtn.dataset.tab);
-  if (initialId) showTab(initialId);
-  
-  // Asegura que la pestaña marcada como activa se muestre al cargar
-  const firstActive = document.querySelector('.tab-btn.active');
-  if (firstActive) showTab(firstActive.dataset.tab);
 })();
 /* ===== Registrar ===== */
 document.getElementById('btnGenerate').addEventListener('click', ()=>{
@@ -1621,10 +1612,6 @@ document.getElementById('btnPlusN').addEventListener('click', ()=>{
   saveAll(); renderInventory();
   document.getElementById('scanQty').value = item.cantidad;
 });
-
-/* ===== Preferencias ===== */
-document.getElementById('prefBeep').addEventListener('change', (e)=>{ prefs.beep = e.target.checked; saveAll(); });
-document.getElementById('prefVibrate').addEventListener('change', (e)=>{ prefs.vibrate = e.target.checked; saveAll(); });
 
 /* ===== Sesión completa (JSON) ===== */
 // Permitir re-seleccionar el mismo archivo sin recargar
