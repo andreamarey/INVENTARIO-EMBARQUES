@@ -277,6 +277,50 @@ button i { margin-right: 6px; }
 .mov-table tbody tr:hover{
   background: var(--row-hover);
 }
+/* Chips de FLUJO (Entrada / Salida / Devolución) */
+.chip-flow{
+  display:inline-block;
+  padding:2px 8px;
+  border-radius:999px;
+  font-size:12px;
+  line-height:1.6;
+  font-weight:700;
+  border:1px solid transparent;
+}
+
+.flow-entrada{
+  background: var(--success-50);
+  color: var(--success);
+  border-color: rgba(16,185,129,.25);
+}
+.flow-salida{
+  background: var(--danger-50);
+  color: var(--danger);
+  border-color: rgba(239,68,68,.25);
+}
+.flow-devolucion{
+  background: var(--primary-50);
+  color: var(--primary-700);
+  border-color: rgba(70,139,131,.25);
+}
+/* Select de flujo con color por opción seleccionada */
+.flow-select{
+  font-weight:700; border-radius:10px; padding:6px 8px;
+  border:1px solid var(--border);
+}
+
+/* Color del control (cerrado) según valor */
+.flow-select.flow-entrada{   background: var(--success-50);  color: var(--success);     border-color: rgba(16,185,129,.35); }
+.flow-select.flow-salida{    background: var(--danger-50);   color: var(--danger-600);  border-color: rgba(239,68,68,.35); }
+.flow-select.flow-devolucion{background: var(--warning-50);  color: var(--warning);     border-color: rgba(245,158,11,.35); }
+
+/* (Opcional) Colorear las opciones del menú — no todos los navegadores lo respetan */
+.flow-select option[value="entrada"]{    background: var(--success-50);  color: var(--success); }
+.flow-select option[value="salida"]{     background: var(--danger-50);   color: var(--danger-600); }
+.flow-select option[value="devolucion"]{ background: var(--warning-50);  color: var(--warning); }
+/* Layout dentro de la celda de “Tipo” en historial */
+.flow-cell{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.flow-origin{ font-size:12px; }
 
 /* =====================  Etiqueta / vista previa (SIN LOGO) ===================== */
 .label-preview{
@@ -362,6 +406,59 @@ button i { margin-right: 6px; }
 button i {
   margin-right: 6px;
 }
+/* Barra de filtros fija dentro del card de Inventario */
+#inventario .filters-bar{
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--card);
+  margin: -24px -24px 12px -24px;     /* come el padding del .card para que se vea “al ras” */
+  padding: 12px 24px 10px 24px;
+  border-bottom: 1px solid var(--border);
+}
+/* Paneles desplegables */
+.inv-accordion details{
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: var(--shadow);
+  margin-bottom: 14px;
+}
+.inv-accordion summary{
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  font-weight: 700;
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.inv-accordion summary::-webkit-details-marker{ display:none; }
+.inv-accordion summary .meta{ color: var(--muted); font-weight: 600; }
+
+/* Contenido del panel */
+.inv-accordion .panel-body{
+  padding: 10px 12px 14px 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* Scroll adaptable por viewport */
+#inventario .scroll-wrap{
+  /* ventana − (header + barra de filtros + márgenes aprox.) */
+  max-height: calc(100vh - 260px);
+  overflow: auto;
+  border-radius: 12px;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+/* margen para el contenedor con scroll */
+#inventario .inv-accordion details > .scroll-wrap{
+  margin-top: 8px;
+}
+/* Móviles/tablets: un poco más de aire */
+@media (max-width: 768px){
+  #inventario .scroll-wrap{
+    max-height: calc(100vh - 320px);
+  }
+}
 </style>
 </head>
 <body>
@@ -421,66 +518,82 @@ button i {
   </section>
 
   <!-- Inventario -->
-  <section id="inventario" class="card hidden">
-    <h2>Inventario</h2>
+<!-- Inventario -->
+<section id="inventario" class="card hidden">
+  <h2>Inventario</h2>
 
-    <div class="row">
+  <!-- Filtros fijos (sticky) -->
+  <div class="filters-bar" style="position:sticky;top:0;background:var(--card);border:1px solid var(--border);padding:8px 12px;border-radius:10px;z-index:2;">
+    <div class="row" style="margin:0">
       <input id="searchInput" placeholder="Buscar por modelo, tela, SKU o código" oninput="renderInventory(); renderHistory();">
     </div>
-
-    <div class="row" style="margin-top:6px">
+    <div class="row" style="margin:6px 0 0">
       <label style="flex:1">Desde: <input type="date" id="dateFrom" onchange="renderInventory(); renderHistory();"></label>
       <label style="flex:1">Hasta: <input type="date" id="dateTo" onchange="renderInventory(); renderHistory();"></label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button onclick="exportFilteredTotals()">
+          <i class="fa fa-file-export"></i> Exportar CSV (Totales Filtrados)
+        </button>
+        <button onclick="exportFilteredHistory()" class="btn-secondary">
+          <i class="fa fa-file-export"></i> Exportar CSV (Historial Filtrado)
+        </button>
+      </div>
     </div>
+  </div>
 
-    <div class="row" style="margin-top:6px">
-  <button onclick="exportFilteredTotals()">
-    <i class="fa fa-file-export"></i> Exportar CSV (Totales Filtrados)
-  </button>
-  <button onclick="exportFilteredHistory()" class="btn-secondary">
-    <i class="fa fa-file-export"></i> Exportar CSV (Historial Filtrado)
-  </button>
-</div>
+  <!-- Acordeón: Totales / Movimientos -->
+  <div class="inv-accordion" style="margin-top:12px">
+    <details open>
+      <summary style="cursor:pointer;font-weight:700">
+        Totales (filtrados) — <span id="totalesMeta" class="muted">…</span>
+      </summary>
+      <div class="scroll-wrap">
+        <table class="inv-table">
+          <thead>
+            <tr>
+              <th>Modelo</th>
+              <th>Tela</th>
+              <th>SKU</th>
+              <th>Código</th>
+              <th style="text-align:right">Cantidad</th>
+              <th>Fecha</th>
+              <th style="text-align:center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="inventoryTableBody">
+            <!-- Se llena dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+    </details>
 
-  <h3 style="margin-top:14px">Totales (filtrados)</h3>
-
-<table class="inv-table">
-  <thead>
-    <tr>
-      <th>Modelo</th>
-      <th>Tela</th>
-      <th>SKU</th>
-      <th>Código</th>
-      <th style="text-align:right">Cantidad</th>
-      <th>Fecha</th>
-      <th style="text-align:center">Acciones</th>
-    </tr>
-  </thead>
-  <tbody id="inventoryTableBody">
-    <!-- Se llena dinámicamente -->
-  </tbody>
-</table>
-
-   <h3 style="margin-top:14px">Historial (movimientos filtrados)</h3>
-<table class="mov-table">
-  <thead>
-    <tr>
-      <th>Fecha</th>
-      <th>Hora</th>
-      <th>Código</th>
-      <th>SKU</th>
-      <th>Modelo</th>
-      <th>Tela</th>
-      <th style="text-align:right">Δ</th>
-      <th>Tipo</th>
-      <th style="text-align:center">Acciones</th>
-    </tr>
-  </thead>
-  <tbody id="historyTableBody">
-    <!-- Se llena dinámicamente -->
-  </tbody>
-</table>
-  </section>
+    <details style="margin-top:12px">
+      <summary style="cursor:pointer;font-weight:700">
+        Historial (movimientos filtrados) — <span id="movsMeta" class="muted">…</span>
+      </summary>
+      <div class="scroll-wrap">
+        <table class="mov-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Hora</th>
+              <th>Código</th>
+              <th>SKU</th>
+              <th>Modelo</th>
+              <th>Tela</th>
+              <th style="text-align:right">Δ</th>
+              <th>Tipo</th>
+              <th style="text-align:center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody">
+            <!-- Se llena dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+</section>
 
   <!-- Conteo mensual -->
   <section id="conteo" class="card hidden">
@@ -595,12 +708,15 @@ let selectedLabelCode = null;
   if (chkBeep) chkBeep.checked = !!prefs.beep;
   if (chkVib)  chkVib.checked  = !!prefs.vibrate;
 
-  // Asegura IDs de movimientos ya guardados (definición de ensureMoveIds más abajo en tu archivo)
-  try { if (typeof ensureMoveIds === 'function') ensureMoveIds(); } catch(_){}
+// Asegura IDs de movimientos ya guardados
+try { if (typeof ensureMoveIds === 'function') ensureMoveIds(); } catch(_){}
 
-  // Pinta vistas iniciales
-  try { renderInventory(); } catch(_){}
-  try { refreshLabelSelect(); } catch(_){}
+// MIGRACIÓN: añade 'flow' a movimientos antiguos
+try { if (typeof migrateMovesFlow === 'function') migrateMovesFlow(); } catch(_){}
+
+// Pinta vistas iniciales
+try { renderInventory(); } catch(_){}
+try { refreshLabelSelect(); } catch(_){}
 })();
 
 /* ===== Exportaciones desde Config (botones "Totales" y "Movimientos") ===== */
@@ -637,22 +753,24 @@ function exportAllMoves(){
     alert("No hay movimientos para exportar.");
     return;
   }
-  const headers = ["Fecha","Hora","Código","SKU","Modelo","Tela","Delta","Tipo"];
-  const rows = [...moves]
-    .sort((a,b)=>(b.dateISO||"").localeCompare(a.dateISO||""))
-    .map(m=>{
-      const d = m.dateISO ? new Date(m.dateISO) : new Date();
-      return [
-        d.toLocaleDateString(),
-        d.toLocaleTimeString(),
-        m.code,
-        m.sku || "",
-        m.nombre,
-        m.tela,
-        Number(m.delta)||0,
-        m.type
-      ];
-    });
+const headers = ["Fecha","Hora","Código","SKU","Modelo","Tela","Δ (firmado)","Flow","Tipo"];
+const rows = [...moves]
+  .sort((a,b)=>(b.dateISO||"").localeCompare(a.dateISO||""))
+  .map(m=>{
+    const d = m.dateISO ? new Date(m.dateISO) : new Date();
+    const sd = signedDelta(m);
+    return [
+      d.toLocaleDateString(),
+      d.toLocaleTimeString(),
+      m.code,
+      m.sku || "",
+      m.nombre,
+      m.tela,
+      sd,
+      m.flow || 'entrada',
+      m.type
+    ];
+  });
   downloadCSV("inventario_movimientos_COMPLETO.csv", headers, rows);
 }
 
@@ -757,14 +875,16 @@ document.getElementById('btnGenerate').addEventListener('click', ()=>{
       nombre: existing.nombre,
       tela: existing.tela,
       delta: +1,
-      type: 'register'
+      type: 'register',
+      flow: 'entrada',   // ← nuevo
+      qty:  1     // ← nuevo (magnitud positiva)
     });
     alert(`Se sumó +1 a ${existing.nombre} (${existing.tela}) · SKU ${existing.sku||'(sin SKU)'}\nCódigo: ${existing.code}`);
   }else{
     const code = "KLL-" + String(kllCounter).padStart(4,"0");
     kllCounter++;
     items.push({ code, sku, nombre, tela, cantidad:1, createdISO:nowISO });
-    moves.push({ id: genId(), dateISO: nowISO, code, sku, nombre, tela, delta:+1, type:'register' });
+    moves.push({ id: genId(), dateISO: nowISO, code, sku, nombre, tela, delta:+1, type:'register', flow:'entrada', qty: 1 });
     alert(`Nuevo producto creado con código ${code}`);
   }
 
@@ -794,48 +914,126 @@ function inRange(iso){
   }
   return true;
 }
+// ¿Hay al menos una fecha activa?
+function hasActiveDateRange(){
+  const from = document.getElementById('dateFrom')?.value;
+  const to   = document.getElementById('dateTo')?.value;
+  return !!(from || to);
+}
+
+// Suma de movimientos (Δ) para un código dentro del rango activo
+function qtyInActiveRangeByCode(code){
+  let total = 0;
+  for (const m of moves){
+    if (m.code === code && inRange(m.dateISO)){
+      total += signedDelta(m); // usa flujo (entrada/salida/devolución)
+    }
+  }
+  return total;
+}
 function renderInventory(){
   const tbody = document.getElementById('inventoryTableBody');
   if(!tbody) return;
+
   const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
+  const byText = (i)=>{
+    return !q || i.nombre.toLowerCase().includes(q) ||
+                 i.tela.toLowerCase().includes(q)   ||
+                 (i.sku||"").toLowerCase().includes(q) ||
+                 i.code.toLowerCase().includes(q);
+  };
+
+  const hasRange = hasActiveDateRange();
+
+  // Cambia el encabezado de la columna de cantidad según el modo
+  const qtyTh = document.querySelector('.inv-table thead th:nth-child(5)');
+  if (qtyTh) qtyTh.textContent = hasRange ? 'Cantidad (en rango)' : 'Cantidad';
+
+  // Base: filtrar por texto (ordenado por fecha de alta)
+  let base = items.filter(i=> byText(i))
+                  .sort((a,b)=>(b.createdISO||"").localeCompare(a.createdISO||""));
+
   tbody.innerHTML = "";
 
-  const data = items
-    .filter(i=>{
-      const okQ = !q || i.nombre.toLowerCase().includes(q) || i.tela.toLowerCase().includes(q) ||
-                        (i.sku||"").toLowerCase().includes(q) || i.code.toLowerCase().includes(q);
-      const okD = inRange(i.createdISO);
-      return okQ && okD;
-    })
-    .sort((a,b)=>(b.createdISO||"").localeCompare(a.createdISO||""));
-
-  if(data.length===0){
+  if (base.length === 0){
     const tr = document.createElement('tr');
     tr.innerHTML = `<td colspan="7" class="muted" style="text-align:center">No hay resultados con el filtro actual.</td>`;
     tbody.appendChild(tr);
-    // Aun así refrescamos el historial filtrado
+    // aun así refrescamos el historial para mantener sincronía
     renderHistory();
+    // meta de Totales
+    const meta = document.getElementById('totalesMeta');
+    if (meta) meta.textContent = `0 ítems · 0 piezas`;
     return;
   }
 
-  data.forEach(i=>{
-    const dateTxt = i.createdISO ? new Date(i.createdISO).toLocaleDateString() : "";
-  const tr = document.createElement('tr');
-tr.innerHTML = `
-  <td>${escapeHtml(i.nombre)}</td>
-  <td>${escapeHtml(i.tela)}</td>
-  <td>${escapeHtml(i.sku||'')}</td>
-  <td>${escapeHtml(i.code)}</td>
-  <td style="text-align:right">${i.cantidad}</td>
-  <td>${escapeHtml(dateTxt)}</td>
-  <td>
-    <button class="btn-del" onclick="deleteItem('${escapeJs(i.code)}')" title="Eliminar producto">
-      <i class="fa fa-trash"></i> Eliminar
-    </button>
-  </td>
-`;
-tbody.appendChild(tr);
-  });
+  let totalPzas = 0;
+  let rowsPintadas = 0;
+
+  if (hasRange){
+    // Recalcula cantidad por Δ en el rango
+    const withRangeQty = base.map(i=>{
+      const qty = qtyInActiveRangeByCode(i.code);
+      return { ...i, _qtyRange: qty };
+    })
+    .filter(i => i._qtyRange > 0); // quita este filtro si quieres ver también 0
+
+    if (withRangeQty.length === 0){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="7" class="muted" style="text-align:center">Sin movimientos en el rango seleccionado.</td>`;
+      tbody.appendChild(tr);
+    } else {
+      withRangeQty.forEach(i=>{
+        const dateTxt = i.createdISO ? new Date(i.createdISO).toLocaleDateString() : "";
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(i.nombre)}</td>
+          <td>${escapeHtml(i.tela)}</td>
+          <td>${escapeHtml(i.sku||'')}</td>
+          <td>${escapeHtml(i.code)}</td>
+          <td style="text-align:right">${i._qtyRange}</td>
+          <td>${escapeHtml(dateTxt)}</td>
+          <td>
+            <button class="btn-del" onclick="deleteItem('${escapeJs(i.code)}')" title="Eliminar producto">
+              <i class="fa fa-trash"></i> Eliminar
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      rowsPintadas = withRangeQty.length;
+      totalPzas = withRangeQty.reduce((a,x)=>a+(Number(x._qtyRange)||0),0);
+    }
+
+  }else{
+    // Sin rango: muestra stock acumulado (como antes)
+    base.forEach(i=>{
+      const dateTxt = i.createdISO ? new Date(i.createdISO).toLocaleDateString() : "";
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(i.nombre)}</td>
+        <td>${escapeHtml(i.tela)}</td>
+        <td>${escapeHtml(i.sku||'')}</td>
+        <td>${escapeHtml(i.code)}</td>
+        <td style="text-align:right">${i.cantidad}</td>
+        <td>${escapeHtml(dateTxt)}</td>
+        <td>
+          <button class="btn-del" onclick="deleteItem('${escapeJs(i.code)}')" title="Eliminar producto">
+            <i class="fa fa-trash"></i> Eliminar
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    rowsPintadas = base.length;
+    totalPzas = base.reduce((a,x)=>a+(Number(x.cantidad)||0),0);
+  }
+
+  // Meta del summary de Totales
+  const meta = document.getElementById('totalesMeta');
+  if (meta){
+    meta.textContent = `${rowsPintadas} ítems · ${totalPzas} piezas${hasRange ? ' (en rango)' : ''}`;
+  }
 
   // Mantén el historial sincronizado con los mismos filtros
   renderHistory();
@@ -860,61 +1058,108 @@ function renderHistory(){
     const tr = document.createElement('tr');
     tr.innerHTML = `<td colspan="9" class="muted" style="text-align:center">No hay movimientos para este filtro.</td>`;
     tbody.appendChild(tr);
+    const meta0 = document.getElementById('movsMeta');
+    if (meta0) meta0.textContent = `0 movs · ΣΔ 0`;
     return;
   }
 
-  // Asegura IDs (por si faltó ensureMoveIds en la carga)
+  // Migración ligera por si faltan campos en registros antiguos
   let needSave = false;
   rows.forEach(m=>{
-    if(!m.id){
-      m.id = (typeof genId === 'function' ? genId() : ('mv_'+Date.now()+Math.random().toString(36).slice(2,7)));
-      needSave = true;
-    }
+    if(!m.id){ m.id = (typeof genId === 'function' ? genId() : ('mv_'+Date.now()+Math.random().toString(36).slice(2,7))); needSave = true; }
+    if(!m.flow){ m.flow = 'entrada'; needSave = true; }
+    if(m.qty == null){ m.qty = Math.abs(Number(m.delta)||0); needSave = true; }
   });
   if(needSave) saveAll();
 
+  const labelFlow = (f)=>{
+    if(f==='salida') return 'Salida';
+    if(f==='devolucion') return 'Devolución';
+    return 'Entrada';
+  };
+
   rows.forEach(m=>{
     const d = m.dateISO ? new Date(m.dateISO) : new Date();
-const tr = document.createElement('tr');
-tr.innerHTML = `
-  <td>${d.toLocaleDateString()}</td>
-  <td>${d.toLocaleTimeString()}</td>
-  <td>${escapeHtml(m.code)}</td>
-  <td>${escapeHtml(m.sku||'')}</td>
-  <td>${escapeHtml(m.nombre)}</td>
-  <td>${escapeHtml(m.tela)}</td>
-  <td style="text-align:right">${m.delta>0? '+'+m.delta : m.delta}</td>
-<td>
-  <span class="chip chip-${escapeHtml(m.type)}">
-    ${escapeHtml(m.type)}
-  </span>
-</td>
-  <td>
-    <button class="btn-del-mov" onclick="deleteMove('${escapeJs(m.id)}')" title="Eliminar movimiento">
-      <i class="fa fa-trash"></i> Eliminar
-    </button>
-  </td>
-`;
-tbody.appendChild(tr);
-  });
-}function exportFilteredTotals(){
-  const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
-  const rows = items
-    .filter(i=>{
-      const okQ = !q || i.nombre.toLowerCase().includes(q) || i.tela.toLowerCase().includes(q) ||
-                        (i.sku||"").toLowerCase().includes(q) || i.code.toLowerCase().includes(q);
-      const okD = inRange(i.createdISO);
-      return okQ && okD;
-    })
-    .sort((a,b)=>(b.createdISO||"").localeCompare(a.createdISO||""));
-  if(rows.length===0){ alert("No hay datos para exportar con el filtro actual."); return; }
+    const sDelta = signedDelta(m);
+    const sDeltaTxt = sDelta>0 ? ('+'+sDelta) : String(sDelta);
 
-  const headers = ["Modelo","Tela","SKU","Código","Cantidad","Fecha Alta"];
-  const data = rows.map(i=>[
-    i.nombre, i.tela, i.sku||"", i.code, i.cantidad,
-    i.createdISO ? new Date(i.createdISO).toLocaleDateString() : ""
-  ]);
-  downloadCSV("inventario_totales_filtrado.csv", headers, data);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${d.toLocaleDateString()}</td>
+      <td>${d.toLocaleTimeString()}</td>
+      <td>${escapeHtml(m.code)}</td>
+      <td>${escapeHtml(m.sku||'')}</td>
+      <td>${escapeHtml(m.nombre)}</td>
+      <td>${escapeHtml(m.tela)}</td>
+      <td style="text-align:right">${sDeltaTxt}</td>
+   <td>
+  <div class="flow-cell">
+    <select
+      id="flowSel_${escapeHtml(m.id)}"
+      class="flow-select flow-${escapeHtml(m.flow || 'entrada')}"
+      onchange="changeMoveFlow('${escapeJs(m.id)}', this.value)">
+      <option value="entrada" ${m.flow==='entrada'?'selected':''}>Entrada</option>
+      <option value="salida" ${m.flow==='salida'?'selected':''}>Salida</option>
+      <option value="devolucion" ${m.flow==='devolucion'?'selected':''}>Devolución</option>
+    </select>
+    <span class="chip chip-${escapeHtml(m.type)}">${escapeHtml(m.type)}</span>
+  </div>
+</td>
+      <td>
+        <button class="btn-del-mov" onclick="deleteMove('${escapeJs(m.id)}')" title="Eliminar movimiento">
+          <i class="fa fa-trash"></i> Eliminar
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Resumen (meta)
+  const sumDelta = rows.reduce((acc,m)=> acc + signedDelta(m), 0);
+  const meta = document.getElementById('movsMeta');
+  if (meta){
+    meta.textContent = `${rows.length} movs · ΣΔ ${sumDelta}`;
+  }
+}
+function exportFilteredTotals(){
+  const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
+  const hasRange = hasActiveDateRange();
+
+  const byText = (i)=>{
+    return !q || i.nombre.toLowerCase().includes(q) ||
+                 i.tela.toLowerCase().includes(q)   ||
+                 (i.sku||"").toLowerCase().includes(q) ||
+                 i.code.toLowerCase().includes(q);
+  };
+
+  let rows = items.filter(i=> byText(i))
+                  .sort((a,b)=>(b.createdISO||"").localeCompare(a.createdISO||""));
+
+  if (hasRange){
+    const data = rows.map(i=>{
+      const qty = qtyInActiveRangeByCode(i.code);
+      return { ...i, _qtyRange: qty };
+    })
+    .filter(i=> i._qtyRange > 0); // mismo criterio que la tabla
+
+    if (data.length===0){ alert("Sin movimientos en el rango para exportar."); return; }
+
+    const headers = ["Modelo","Tela","SKU","Código","Cantidad (en rango)","Fecha Alta"];
+    const out = data.map(i=>[
+      i.nombre, i.tela, i.sku||"", i.code, i._qtyRange,
+      i.createdISO ? new Date(i.createdISO).toLocaleDateString() : ""
+    ]);
+    downloadCSV("inventario_totales_en_rango.csv", headers, out);
+
+  }else{
+    if (rows.length===0){ alert("No hay datos para exportar con el filtro actual."); return; }
+    const headers = ["Modelo","Tela","SKU","Código","Cantidad","Fecha Alta"];
+    const out = rows.map(i=>[
+      i.nombre, i.tela, i.sku||"", i.code, i.cantidad,
+      i.createdISO ? new Date(i.createdISO).toLocaleDateString() : ""
+    ]);
+    downloadCSV("inventario_totales_actual.csv", headers, out);
+  }
 }
 function exportFilteredHistory(){
   const q = (document.getElementById('searchInput')?.value || "").toLowerCase();
@@ -928,11 +1173,22 @@ function exportFilteredHistory(){
     .sort((a,b)=>(b.dateISO||"").localeCompare(a.dateISO||""));
   if(rows.length===0){ alert("No hay movimientos para exportar con el filtro actual."); return; }
 
-  const headers = ["Fecha","Hora","Código","SKU","Modelo","Tela","Delta","Tipo"];
-  const data = rows.map(m=>{
-    const d = new Date(m.dateISO||Date.now());
-    return [ d.toLocaleDateString(), d.toLocaleTimeString(), m.code, m.sku||"", m.nombre, m.tela, m.delta, m.type ];
-  });
+ const headers = ["Fecha","Hora","Código","SKU","Modelo","Tela","Δ (firmado)","Flow","Tipo"];
+const data = rows.map(m=>{
+  const d = new Date(m.dateISO||Date.now());
+  const sd = signedDelta(m);
+  return [
+    d.toLocaleDateString(),
+    d.toLocaleTimeString(),
+    m.code,
+    m.sku || "",
+    m.nombre,
+    m.tela,
+    sd,
+    m.flow || 'entrada',
+    m.type
+  ];
+});
   downloadCSV("inventario_historial_filtrado.csv", headers, data);
 }
 
@@ -952,16 +1208,19 @@ document.getElementById('btnStartCount').addEventListener('click', ()=>{
     });
   }
 
-  // 3) Entradas del mes (solo deltas positivos) agrupadas por código
-  const entradasMap = new Map(); // code -> cantidad (+)
-  moves.forEach(m=>{
-    if(!m.dateISO) return;
-    const d = new Date(m.dateISO);
-    if (d >= start && d <= end && (Number(m.delta)||0) > 0) {
+// 3) Entradas del mes (solo Δ firmados > 0) agrupadas por código
+const entradasMap = new Map(); // code -> cantidad (+)
+moves.forEach(m=>{
+  if(!m.dateISO) return;
+  const d = new Date(m.dateISO);
+  if (d >= start && d <= end){
+    const sd = signedDelta(m); // usa flow
+    if (sd > 0){
       const cur = entradasMap.get(m.code)||0;
-      entradasMap.set(m.code, cur + (Number(m.delta)||0));
+      entradasMap.set(m.code, cur + sd);
     }
-  });
+  }
+});
 
   // 4) Construir buffer de conteo: unión de códigos (inicio ∪ entradas)
   const unionCodes = new Set([...inicioMap.keys(), ...entradasMap.keys()]);
@@ -1347,7 +1606,9 @@ function processScan(text){
       nombre: item.nombre,
       tela: item.tela,
       delta: +1,
-      type: 'scan'
+      type: 'scan',
+      flow:'entrada', 
+      qty:  1 
     });
 
     if(prefs.beep) beep();
@@ -1631,7 +1892,7 @@ document.getElementById('btnPlus1').addEventListener('click', ()=>{
   if(!item) return;
   item.cantidad += 1;
   const nowISO = new Date().toISOString();
-  moves.push({id: genId(),dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+1, type:'scan'});
+  moves.push({id: genId(),dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+1, type:'scan', flow:'entrada', qty: 1 });
   if(prefs.beep) beep();
   if(prefs.vibrate && navigator.vibrate) navigator.vibrate(80);
   flashScan(true, `+1 ${item.nombre} (${item.tela})`);
@@ -1646,7 +1907,7 @@ document.getElementById('btnPlusN').addEventListener('click', ()=>{
   if(!item) return;
   item.cantidad += n;
   const nowISO = new Date().toISOString();
-  moves.push({id: genId(),dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+n, type:'scan'});
+  moves.push({id: genId(),dateISO:nowISO, code:item.code, sku:item.sku, nombre:item.nombre, tela:item.tela, delta:+n, type:'scan', flow:'entrada', qty: Math.abs(+n) });
   if(prefs.beep) beep();
   if(prefs.vibrate && navigator.vibrate) navigator.vibrate([60,30,60]);
   flashScan(true, `+${n} ${item.nombre} (${item.tela})`);
@@ -1704,6 +1965,8 @@ document.getElementById('btnImportSession').addEventListener('click', ()=>{
         ? { beep: !!data.prefs.beep, vibrate: !!data.prefs.vibrate }
         : { beep: true, vibrate: true };
       if(Array.isArray(data.snapshots)) snapshots = data.snapshots;
+
+try { if (typeof migrateMovesFlow === 'function') migrateMovesFlow(); } catch(_){}
 
       saveAll();
       renderInventory();
@@ -1786,7 +2049,9 @@ document.getElementById('btnImportSession').addEventListener('click', ()=>{
               nombre: it.nombre,
               tela: it.tela,
               delta: +cantidad,
-              type: 'import'
+              type: 'import',
+              flow: 'entrada',   // ← nuevo
+              qty: Math.abs(+cantidad)
             });
             movs++;
           }else{
@@ -1808,11 +2073,15 @@ document.getElementById('btnImportSession').addEventListener('click', ()=>{
               nombre,
               tela,
               delta: +cantidad,
-              type: 'import'
+              type: 'import',
+              flow:'entrada', 
+              qty: Math.abs(+cantidad)
             });
             movs++;
           }
         });
+
+try { if (typeof migrateMovesFlow === 'function') migrateMovesFlow(); } catch(_){}
 
         saveAll();
         renderInventory();
@@ -1829,6 +2098,98 @@ document.getElementById('btnImportSession').addEventListener('click', ()=>{
   });
 })();
 /* ===== Utilidades ===== */
+// Firmado “neutral” para SALIDA:
+// - entrada  => +qty
+// - salida   => 0   (neutraliza la entrada original)
+// - devolución => +qty
+function signedDelta(m){
+  const qty  = Math.abs(Number(m.delta ?? m.qty) || 0);
+  const flow = (m.flow || 'entrada');
+  if (flow === 'salida') return 0;   // <-- clave: no resta, solo neutraliza
+  return qty; // entrada o devolución suman
+}
+function setFlowSelectColor(sel, flow){
+  if(!sel) return;
+  sel.classList.remove('flow-entrada','flow-salida','flow-devolucion');
+  sel.classList.add('flow-'+(flow||'entrada'));
+}
+// --- Acción al cambiar flujo ---
+window.changeMoveFlow = function(id, newFlow){
+  const m = moves.find(x=>x.id===id);
+  if(!m) return;
+
+  // delta firmado "antes"
+  const oldEff = signedDelta(m);
+
+  // actualiza flujo y asegura qty
+  m.flow = newFlow;
+  m.qty  = Math.abs(Number(m.delta ?? m.qty) || 0);
+
+  // delta firmado "después"
+  const newEff = signedDelta(m);
+
+  // ajusta inventario del producto
+  const it = items.find(i=>i.code===m.code);
+  if(it){
+    it.cantidad = (Number(it.cantidad)||0) - oldEff + newEff;
+}
+const sel = document.getElementById('flowSel_'+id);
+if (sel) setFlowSelectColor(sel, newFlow);
+
+  saveAll();
+  renderInventory(); // esto refresca totales y vuelve a llamar a renderHistory()
+}; // <--- cierra aquí changeMoveFlow
+
+// === Crear movimiento nuevo de flujo (entrada/salida/devolución) y ajustar inventario
+window.addMovement = function(code, flow, qty = 1){
+  qty = Math.max(1, Number(qty)||1);
+
+  const it = items.find(i=>i.code===code);
+  if(!it){
+    alert("Producto no encontrado para crear movimiento.");
+    return;
+  }
+
+  const nowISO = new Date().toISOString();
+
+  // Registrar movimiento (dejamos delta y qty en magnitud positiva)
+  moves.push({
+    id: genId(),
+    dateISO: nowISO,
+    code: it.code,
+    sku: it.sku || "",
+    nombre: it.nombre,
+    tela: it.tela,
+    delta: qty,          // compatibilidad con lo antiguo
+    type: 'scan',        // o 'ajuste' si quieres distinguirlos
+    flow: flow,          // 'entrada' | 'salida' | 'devolucion'
+    qty:  qty
+  });
+
+  // Ajustar inventario acumulado (sin rango)
+  if (flow === 'salida'){
+    it.cantidad = Math.max(0, (Number(it.cantidad)||0) - qty);
+  } else {
+    it.cantidad = (Number(it.cantidad)||0) + qty; // entrada o devolución
+  }
+
+  saveAll();
+  renderInventory(); // esto refresca también el historial
+};
+
+// Atajos
+window.addSalida = function(code){ addMovement(code, 'salida', 1); };
+window.addDevol  = function(code){ addMovement(code, 'devolucion', 1); };
+
+// === Migración ligera: añade flow/qty a movimientos antiguos
+function migrateMovesFlow(){
+  let changed = false;
+  moves.forEach(m=>{
+    if (!m.flow){ m.flow = 'entrada'; changed = true; }
+    if (m.qty == null){ m.qty = Math.abs(Number(m.delta)||0); changed = true; }
+  });
+  if (changed) saveAll();
+}
 // === Helper para resetear <input type="file"> de forma segura ===
 function resetFileInput(el){
   try{
@@ -2012,7 +2373,7 @@ function deleteMove(moveId){
 
   // Revertir cantidad del producto
   if(it){
-    const newQty = (parseInt(it.cantidad)||0) - (parseInt(m.delta)||0);
+const newQty = (parseInt(it.cantidad)||0) - signedDelta(m);
     it.cantidad = Math.max(0, newQty);
   }
 
@@ -2058,6 +2419,57 @@ function deleteMove(moveId){
 
     buffer += ev.key;
   }, true);
+})();
+</script>
+
+<script>
+// === RESCATE TABS (robusto y con seguro) ===
+(function(){
+  if (document._tabsBound) return;         // evita doble-enganche si ya existe
+  document._tabsBound = true;
+
+  window.showTab = function(id){
+    // Ocultar todas
+    document.querySelectorAll('section.card').forEach(s => s.classList.add('hidden'));
+    // Mostrar la seleccionada
+    const sec = document.getElementById(id);
+    if (sec) sec.classList.remove('hidden');
+
+    // Marcar botón activo
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`.tab-btn[data-tab="${id}"]`);
+    if (btn) btn.classList.add('active');
+
+    // Hooks por pestaña (con try/catch para no romper)
+    if (id === 'escanear'){
+      try{ if (typeof initCameras === 'function') initCameras(); }catch(_){}
+    } else {
+      try{ if (typeof stopScanner === 'function') stopScanner(); }catch(_){}
+    }
+    if (id === 'etiquetas'){
+      try{ if (typeof refreshLabelSelect === 'function') refreshLabelSelect(); }catch(_){}
+    }
+    if (id === 'conteo'){
+      try{ if (typeof renderCountEditor === 'function') renderCountEditor(); }catch(_){}
+      try{ if (typeof renderSnapshotsList === 'function') renderSnapshotsList(); }catch(_){}
+    }
+  };
+
+  // Delegación de clics en las tabs
+  document.addEventListener('click', function(ev){
+    const t = ev.target.closest('.tab-btn');
+    if (!t) return;
+    ev.preventDefault();
+    const id = t.dataset.tab;
+    if (id) showTab(id);
+  }, true);
+
+  // Arranque: usa la marcada .active o 'registrar'
+  const initialId =
+    document.querySelector('.tab-btn.active')?.dataset.tab ||
+    document.querySelector('.tab-btn')?.dataset.tab ||
+    'registrar';
+  showTab(initialId);
 })();
 </script>
 </body>
