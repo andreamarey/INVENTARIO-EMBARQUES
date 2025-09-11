@@ -459,15 +459,19 @@ button i {
     max-height: calc(100vh - 320px);
   }
 }
-/* Fila de botones de export en filtros: iguales y alineados */
 #inventario .filters-bar .btn-row{
   display:flex; gap:8px; align-items:center; flex-wrap:wrap;
 }
 #inventario .filters-bar .btn-row button{
-  flex: 1 1 240px;
-  width: auto;   /* anula width:100% global de los botones */
+  width: auto !important;     /* anula el 100% */
+  flex: 0 1 auto !important;  /* que no se estiren */
+  padding: 8px 12px;          /* más compactos */
+  font-size: 14px;            /* más chicos */
 }
-#inventario .filters-bar .btn-row i{ font-size: .95em; }
+#inventario .filters-bar .btn-row i{
+  font-size:.95em;
+  margin-right:6px;
+}
 </style>
 </head>
 <body>
@@ -531,24 +535,32 @@ button i {
 <section id="inventario" class="card hidden">
   <h2>Inventario</h2>
 
-  <!-- Filtros fijos (sticky) -->
-  <div class="filters-bar" style="position:sticky;top:0;background:var(--card);border:1px solid var(--border);padding:8px 12px;border-radius:10px;z-index:2;">
-    <div class="row" style="margin:0">
-      <input id="searchInput" placeholder="Buscar por modelo, tela, SKU o código" oninput="renderInventory(); renderHistory();">
-    </div>
-    <div class="row" style="margin:6px 0 0">
-      <label style="flex:1">Desde: <input type="date" id="dateFrom" onchange="renderInventory(); renderHistory();"></label>
-      <label style="flex:1">Hasta: <input type="date" id="dateTo" onchange="renderInventory(); renderHistory();"></label>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button onclick="exportFilteredTotals()">
-          <i class="fa fa-file-export"></i> Exportar CSV (Totales Filtrados)
-        </button>
-        <button onclick="exportFilteredHistory()" class="btn-secondary">
-          <i class="fa fa-file-export"></i> Exportar CSV (Historial Filtrado)
-        </button>
-      </div>
-    </div>
+<!-- Filtros fijos (sticky) -->
+<div class="filters-bar" style="position:sticky;top:0;background:var(--card);border:1px solid var(--border);padding:8px 12px;border-radius:10px;z-index:2;">
+  <div class="row" style="margin:0">
+    <input id="searchInput" placeholder="Buscar por modelo, tela, SKU o código"
+           oninput="renderInventory(); renderHistory();">
   </div>
+
+  <div class="row" style="margin:6px 0 0">
+    <label style="flex:1">Desde:
+      <input type="date" id="dateFrom" onchange="renderInventory(); renderHistory();">
+    </label>
+    <label style="flex:1">Hasta:
+      <input type="date" id="dateTo" onchange="renderInventory(); renderHistory();">
+    </label>
+  </div>
+
+  <!-- Botones: ahora con la clase .btn-row -->
+  <div class="btn-row">
+    <button onclick="exportFilteredTotals()">
+      <i class="fa fa-file-export"></i> Exportar CSV (Totales Filtrados)
+    </button>
+    <button onclick="exportFilteredHistory()" class="btn-secondary">
+      <i class="fa fa-file-export"></i> Exportar CSV (Historial Filtrado)
+    </button>
+  </div>
+</div>
 
   <!-- Acordeón: Totales / Movimientos -->
   <div class="inv-accordion" style="margin-top:12px">
