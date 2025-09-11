@@ -459,6 +459,15 @@ button i {
     max-height: calc(100vh - 320px);
   }
 }
+/* Fila de botones de export en filtros: iguales y alineados */
+#inventario .filters-bar .btn-row{
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+}
+#inventario .filters-bar .btn-row button{
+  flex: 1 1 240px;
+  width: auto;   /* anula width:100% global de los botones */
+}
+#inventario .filters-bar .btn-row i{ font-size: .95em; }
 </style>
 </head>
 <body>
